@@ -8,6 +8,7 @@ import os
 import random
 import struct
 import sys
+from pathlib import Path
 
 from .__version__ import __version__, __title__
 from .core.dharma import DharmaMachine
@@ -51,6 +52,8 @@ class DharmaCommandLine:
         o.add_argument('-template', metavar='file', type=argparse.FileType(), help='template data')
         o.add_argument('-version', action='version', version='%(prog)s {}'.format(__version__),
                        help=argparse.SUPPRESS)
+        o.add_argument('-dependencies', metavar='path', type=Path,
+                       help='path containing grammars referenced by input grammars')
 
         return parser.parse_args()
 
@@ -68,7 +71,7 @@ class DharmaCommandLine:
         template_data = '' if not args.template else args.template.read()
         dharma = DharmaMachine(prefix_data, suffix_data, template_data)
         dharma.process_settings(args.settings)
-        dharma.process_grammars(args.grammars)
+        dharma.process_grammars(args.grammars, args.dependencies)
         if args.storage:
             dharma.generate_testcases(args.storage, args.format, args.count)
         elif args.server:
