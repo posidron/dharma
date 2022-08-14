@@ -511,16 +511,28 @@ class DharmaMachine:  # pylint: disable=too-many-instance-attributes
                 logging.error("Failed in writing test case %s", filename)
                 sys.exit(-1)
 
-    def process_grammars(self, grammars):
+    def process_grammars(self, grammars, dependencies):
         """Process provided grammars by parsing them into Python objects."""
         for path in self.default_grammars:
             grammars.insert(0, open(os.path.relpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                                  os.path.normcase(path)))))
+        if dependencies:
+            if dependencies.is_dir():
+                for path in dependencies.glob('*.dg'):
+                    grammars.insert(0, path.open())
+            elif dependencies.is_file():
+                grammars.insert(0, dependencies.open())
+
+        processed_grammars = set()
         for fo in grammars:
+            resolved_path = os.path.realpath(fo.name)
+            if resolved_path in processed_grammars:
+                continue
             logging.debug("Processing grammar content of %s", fo.name)
             self.set_namespace(os.path.splitext(os.path.basename(fo.name))[0])
             for line in fo:
                 self.parse_line(line)
             self.handle_empty_line()
+            processed_grammars.add(resolved_path)
         self.resolve_xref()
         self.calculate_leaf_paths()

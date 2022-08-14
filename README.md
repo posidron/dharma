@@ -67,6 +67,11 @@ Generate a single test-case and print it to `stdout`. Multiple grammars can be a
 dharma -grammars dharma/grammars/canvas2d.dg
 ```
 
+Generate a single test-case where the input grammar reference rules in other grammars
+```bash
+dharma -grammars input_grammar.dg -dependencies reference_grammar_path
+```
+
 Generating multiple test-cases and save the result to disk.
 
 ```bash
