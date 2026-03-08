@@ -532,7 +532,7 @@ preserve_aspect_ratio :=
 	+preserve_aspect_ratio_align+ slice
 	defer +preserve_aspect_ratio_align+
 	defer +preserve_aspect_ratio_align+ meet
-	defer +preserve_aspect_ratio_align+ slice 
+	defer +preserve_aspect_ratio_align+ slice
 
 core_attributes :=
 	id="@element_id@"
@@ -622,8 +622,7 @@ graphical_event_attributes :=
 	onload=""
 
 external_attributes :=
-	externalResourcesRequired="true"
-	externalResourcesRequired="false"
+	externalResourcesRequired="+common:bool+"
 
 opacity_value :=
 	%range%(0.0-1.0)
@@ -2122,7 +2121,7 @@ text_content :=
 	+tref+
 	+text_path+
 	+alt_glyph+
-	
+
 length_adjust_value :=
 	spacing
 	spacingAndGlyphs
@@ -3177,26 +3176,25 @@ svg_content_class :=
 %section% := variable
 
 glyph_name_ref :=
-	<svg><font id="Font1" horiz-adv-x="1000"><glyph unicode="!" glyph-name="@glyph_name_ref@"></glyph></font></svg>
+	<svg><font id="Font1" horiz-adv-x="1000"><glyph unicode="!" glyph-name="@"></glyph></font></svg>
 
 filter_primitive_ref :=
-	<svg><filter id="filter" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="400"><feGaussianBlur stdDeviation="8" result="@filter_primitive_ref@"/></filter></svg>
+	<svg><filter id="filter" filterUnits="userSpaceOnUse" x="0" y="0" width="1200" height="400"><feGaussianBlur stdDeviation="8" result="@"/></filter></svg>
 
 color_profile_name :=
-	<svg><color-profile name="@color_profile_name@" %repeat%(+color_profile_element_attributes_without_name+, " ")></color-profile></svg>
+	<svg><color-profile name="@" %repeat%(+color_profile_element_attributes_without_name+, " ")></color-profile></svg>
 
 a_target :=
-	<iframe id="@a_target@" width="1" height="1"></iframe>
+	<iframe id="@" width="1" height="1"></iframe>
 
 class_name :=
-	<style type="text/css">.@class_name@ {background-color: #0000ff;}</style>
+	<style type="text/css">.@ {background-color: #0000ff;}</style>
 
 element_id :=
-	<svg id="@element_id@">%repeat%(+svg_content_class+)</svg>
+	<svg id="@">%repeat%(+svg_content_class+)</svg>
 
 
-%section% := variance
+%section% := output
 
 svg :=
 	<svg %repeat%(+svg_attributes+, " ")>%repeat%(+svg_content_class+)</svg>
-

@@ -1,7 +1,11 @@
-FROM python:3-slim
-LABEL maintainer Christoph Diehl <cdiehl@mozilla.com>
-ENV PYTHONUNBUFFERED 1
-COPY . /app
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
-RUN python setup.py install
-ENTRYPOINT [ "dharma" ]
+COPY pyproject.toml README.md ./
+COPY dharma/ dharma/
+
+RUN pip install --no-cache-dir .
+
+ENTRYPOINT ["dharma"]

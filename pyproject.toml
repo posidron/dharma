@@ -1,0 +1,65 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "dharma-deux"
+version = "2.0.0"
+description = "Generation-based, context-free grammar fuzzer."
+readme = "README.md"
+license = "MPL-2.0"
+authors = ["Christoph Diehl"]
+keywords = ["fuzzer", "fuzzing", "security", "testing", "generator", "grammar"]
+packages = [{include = "dharma"}]
+
+[tool.poetry.scripts]
+dharma = "dharma:DharmaCommandLine.main"
+
+[tool.poetry.urls]
+Homepage = "https://github.com/posidron/dharma"
+"Bug Tracker" = "https://github.com/posidron/dharma/issues"
+
+[tool.poetry.dependencies]
+python = ">=3.13"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0"
+pytest-cov = ">=4.0"
+ruff = ">=0.1.0"
+pylint = ">=3.0"
+mypy = ">=1.0"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+# Ruff is used only as a formatter; pylint handles linting
+select = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pylint.main]
+py-version = "3.13"
+jobs = 0
+
+[tool.pylint."messages control"]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

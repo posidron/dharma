@@ -1,0 +1,1050 @@
+%%% WebGPU API Grammar
+%%% W3C Candidate Recommendation Draft, March 2026
+%%% https://www.w3.org/TR/webgpu/
+%%%
+%%% Covers: GPU, GPUAdapter, GPUDevice, GPUBuffer, GPUTexture, GPUSampler,
+%%% GPUBindGroupLayout, GPUBindGroup, GPUPipelineLayout, GPUShaderModule,
+%%% GPUComputePipeline, GPURenderPipeline, GPUCommandEncoder,
+%%% GPURenderPassEncoder, GPUComputePassEncoder, GPUQueue, GPUCanvasContext,
+%%% GPUQuerySet, error handling, WGSL shader snippets
+
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 20
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+%const% MAX_REPEAT_POWER := 3
+
+%%% =========================================================================
+%%% Value Section
+%%% =========================================================================
+
+%section% := value
+
+%%% --- Basic numeric helpers ---
+
+smallUint :=
+	0
+	1
+	2
+	3
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+
+bufferSize :=
+	4
+	8
+	12
+	16
+	32
+	64
+	128
+	256
+	512
+	1024
+	4096
+	65536
+	0
+	3
+	7
+	%range%(4-2048)
+
+textureSize :=
+	1
+	2
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+	512
+	1024
+
+mipLevelCount :=
+	1
+	2
+	3
+	4
+	5
+	%range%(1-10)
+
+sampleCount :=
+	1
+	4
+
+arrayLayerCount :=
+	1
+	2
+	4
+	6
+	%range%(1-16)
+
+offset :=
+	0
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+	%range%(0-512)
+
+dynamicOffset :=
+	0
+	256
+	512
+
+float01 :=
+	0.0
+	0.25
+	0.5
+	0.75
+	1.0
+
+colorValue :=
+	0.0
+	0.5
+	1.0
+	%range%(0-9).%range%(0-9)
+
+clearColor :=
+	{r: +colorValue+, g: +colorValue+, b: +colorValue+, a: +colorValue+}
+
+workgroupCount :=
+	1
+	2
+	4
+	8
+	16
+	%range%(1-65535)
+
+bindingIndex :=
+	0
+	1
+	2
+	3
+	%range%(0-7)
+
+groupIndex :=
+	0
+	1
+	2
+	3
+
+bytesPerRow :=
+	256
+	512
+	1024
+	2048
+	%range%(1-4096)
+	128
+	64
+
+%%% --- Texture formats ---
+
+colorTextureFormat :=
+	"r8unorm"
+	"r8snorm"
+	"r8uint"
+	"r8sint"
+	"r16uint"
+	"r16sint"
+	"r16float"
+	"rg8unorm"
+	"rg8snorm"
+	"rg8uint"
+	"rg8sint"
+	"r32uint"
+	"r32sint"
+	"r32float"
+	"rg16uint"
+	"rg16sint"
+	"rg16float"
+	"rgba8unorm"
+	"rgba8unorm-srgb"
+	"rgba8snorm"
+	"rgba8uint"
+	"rgba8sint"
+	"bgra8unorm"
+	"bgra8unorm-srgb"
+	"rgb9e5ufloat"
+	"rgb10a2uint"
+	"rgb10a2unorm"
+	"rg11b10ufloat"
+	"rg32uint"
+	"rg32sint"
+	"rg32float"
+	"rgba16uint"
+	"rgba16sint"
+	"rgba16float"
+	"rgba32uint"
+	"rgba32sint"
+	"rgba32float"
+
+depthStencilFormat :=
+	"stencil8"
+	"depth16unorm"
+	"depth24plus"
+	"depth24plus-stencil8"
+	"depth32float"
+	"depth32float-stencil8"
+
+textureFormat :=
+	+colorTextureFormat+
+	+depthStencilFormat+
+
+renderableColorFormat :=
+	"r8unorm"
+	"r16float"
+	"r32float"
+	"rg8unorm"
+	"rg16float"
+	"rg32float"
+	"rgba8unorm"
+	"rgba8unorm-srgb"
+	"bgra8unorm"
+	"bgra8unorm-srgb"
+	"rgb10a2unorm"
+	"rgba16float"
+
+preferredCanvasFormat :=
+	navigator.gpu.getPreferredCanvasFormat()
+
+%%% --- Buffer usage flags ---
+
+bufferUsage :=
+	GPUBufferUsage.MAP_READ
+	GPUBufferUsage.MAP_WRITE
+	GPUBufferUsage.COPY_SRC
+	GPUBufferUsage.COPY_DST
+	GPUBufferUsage.INDEX
+	GPUBufferUsage.VERTEX
+	GPUBufferUsage.UNIFORM
+	GPUBufferUsage.STORAGE
+	GPUBufferUsage.INDIRECT
+	GPUBufferUsage.QUERY_RESOLVE
+	GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+	GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+	GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC
+	GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+	GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+	GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+	GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC
+	GPUBufferUsage.INDIRECT | GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE
+	GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+
+%%% --- Texture usage flags ---
+
+textureUsage :=
+	GPUTextureUsage.COPY_SRC
+	GPUTextureUsage.COPY_DST
+	GPUTextureUsage.TEXTURE_BINDING
+	GPUTextureUsage.STORAGE_BINDING
+	GPUTextureUsage.RENDER_ATTACHMENT
+	GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST
+	GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+	GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
+	GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+	GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+	GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_DST
+	GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
+
+%%% --- Enum values ---
+
+textureDimension :=
+	"1d"
+	"2d"
+	"3d"
+
+textureViewDimension :=
+	"1d"
+	"2d"
+	"2d-array"
+	"cube"
+	"cube-array"
+	"3d"
+
+textureAspect :=
+	"all"
+	"depth-only"
+	"stencil-only"
+
+primitiveTopology :=
+	"point-list"
+	"line-list"
+	"line-strip"
+	"triangle-list"
+	"triangle-strip"
+
+indexFormat :=
+	"uint16"
+	"uint32"
+
+frontFace :=
+	"ccw"
+	"cw"
+
+cullMode :=
+	"none"
+	"front"
+	"back"
+
+blendFactor :=
+	"zero"
+	"one"
+	"src"
+	"one-minus-src"
+	"src-alpha"
+	"one-minus-src-alpha"
+	"dst"
+	"one-minus-dst"
+	"dst-alpha"
+	"one-minus-dst-alpha"
+	"src-alpha-saturated"
+	"constant"
+	"one-minus-constant"
+
+blendOperation :=
+	"add"
+	"subtract"
+	"reverse-subtract"
+	"min"
+	"max"
+
+compareFunction :=
+	"never"
+	"less"
+	"equal"
+	"less-equal"
+	"greater"
+	"not-equal"
+	"greater-equal"
+	"always"
+
+stencilOperation :=
+	"keep"
+	"zero"
+	"replace"
+	"invert"
+	"increment-clamp"
+	"decrement-clamp"
+	"increment-wrap"
+	"decrement-wrap"
+
+addressMode :=
+	"clamp-to-edge"
+	"repeat"
+	"mirror-repeat"
+
+filterMode :=
+	"nearest"
+	"linear"
+
+mipmapFilterMode :=
+	"nearest"
+	"linear"
+
+loadOp :=
+	"load"
+	"clear"
+
+storeOp :=
+	"store"
+	"discard"
+
+vertexFormat :=
+	"uint8"
+	"uint8x2"
+	"uint8x4"
+	"sint8"
+	"sint8x2"
+	"sint8x4"
+	"unorm8"
+	"unorm8x2"
+	"unorm8x4"
+	"snorm8"
+	"snorm8x2"
+	"snorm8x4"
+	"uint16"
+	"uint16x2"
+	"uint16x4"
+	"sint16"
+	"sint16x2"
+	"sint16x4"
+	"unorm16"
+	"unorm16x2"
+	"unorm16x4"
+	"snorm16"
+	"snorm16x2"
+	"snorm16x4"
+	"float16"
+	"float16x2"
+	"float16x4"
+	"float32"
+	"float32x2"
+	"float32x3"
+	"float32x4"
+	"uint32"
+	"uint32x2"
+	"uint32x3"
+	"uint32x4"
+	"sint32"
+	"sint32x2"
+	"sint32x3"
+	"sint32x4"
+	"unorm10-10-10-2"
+	"snorm10-10-10-2"
+
+vertexStepMode :=
+	"vertex"
+	"instance"
+
+errorFilter :=
+	"validation"
+	"out-of-memory"
+	"internal"
+
+queryType :=
+	"occlusion"
+	"timestamp"
+
+mapMode :=
+	GPUMapMode.READ
+	GPUMapMode.WRITE
+
+powerPreference :=
+	"low-power"
+	"high-performance"
+	undefined
+
+canvasAlphaMode :=
+	"opaque"
+	"premultiplied"
+
+%%% --- Shader stage flags ---
+
+shaderStage :=
+	GPUShaderStage.VERTEX
+	GPUShaderStage.FRAGMENT
+	GPUShaderStage.COMPUTE
+	GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT
+	GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE
+
+%%% --- Bind group layout entry types ---
+
+bufferBindingType :=
+	"uniform"
+	"storage"
+	"read-only-storage"
+
+samplerBindingType :=
+	"filtering"
+	"non-filtering"
+	"comparison"
+
+textureSampleType :=
+	"float"
+	"unfilterable-float"
+	"depth"
+	"sint"
+	"uint"
+
+storageTextureAccess :=
+	"write-only"
+	"read-only"
+	"read-write"
+
+%%% --- WGSL shader code (known-good samples for API fuzzing) ---
+%%% These shaders are guaranteed to compile so the WebGPU pipeline,
+%%% render passes, and dispatch calls actually exercise the API.
+%%% For shader compiler fuzzing, use wgsl.dg standalone instead.
+
+vertexShaderCode :=
+	@vertex fn vs_main(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f { var pos = array<vec2f, 3>(vec2f(0.0, 0.5), vec2f(-0.5, -0.5), vec2f(0.5, -0.5)); return vec4f(pos[vi], 0.0, 1.0); }
+	@vertex fn vs_main(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4f { let x = f32(i32(vi) - 1); let y = f32(i32(vi & 1u) * 2 - 1); return vec4f(x, y, 0.0, 1.0); }
+	@vertex fn vs_main(@location(0) pos: vec4f) -> @builtin(position) vec4f { return pos; }
+	@vertex fn vs_main(@location(0) pos: vec2f, @location(1) color: vec4f) -> @builtin(position) vec4f { return vec4f(pos, 0.0, 1.0); }
+	struct Uniforms { mvp: mat4x4f }; @group(0) @binding(0) var<uniform> u: Uniforms; @vertex fn vs_main(@location(0) pos: vec3f) -> @builtin(position) vec4f { return u.mvp * vec4f(pos, 1.0); }
+	struct VOut { @builtin(position) pos: vec4f, @location(0) color: vec4f }; @vertex fn vs_main(@builtin(vertex_index) vi: u32) -> VOut { var out: VOut; out.pos = vec4f(0.0, 0.0, 0.0, 1.0); out.color = vec4f(1.0, 0.0, 0.0, 1.0); return out; }
+	@vertex fn vs_main(@builtin(vertex_index) vi: u32, @builtin(instance_index) ii: u32) -> @builtin(position) vec4f { let offset = vec2f(f32(ii) * 0.25, 0.0); return vec4f(offset, 0.0, 1.0); }
+	@vertex fn vs_main() -> @builtin(position) vec4f { return vec4f(0.0, 0.0, 0.0, 1.0); }
+
+fragmentShaderCode :=
+	@fragment fn fs_main() -> @location(0) vec4f { return vec4f(1.0, 0.0, 0.0, 1.0); }
+	@fragment fn fs_main() -> @location(0) vec4f { return vec4f(0.0, 1.0, 0.0, 1.0); }
+	@fragment fn fs_main() -> @location(0) vec4f { return vec4f(+colorValue+, +colorValue+, +colorValue+, 1.0); }
+	@fragment fn fs_main(@location(0) color: vec4f) -> @location(0) vec4f { return color; }
+	@group(0) @binding(0) var mySampler: sampler; @group(0) @binding(1) var myTexture: texture_2d<f32>; @fragment fn fs_main(@location(0) uv: vec2f) -> @location(0) vec4f { return textureSample(myTexture, mySampler, uv); }
+	struct Uniforms { color: vec4f }; @group(0) @binding(0) var<uniform> u: Uniforms; @fragment fn fs_main() -> @location(0) vec4f { return u.color; }
+	@fragment fn fs_main(@builtin(position) pos: vec4f) -> @location(0) vec4f { let c = pos.xy / vec2f(256.0); return vec4f(c, 0.5, 1.0); }
+	@fragment fn fs_main() -> @location(0) vec4f { discard; return vec4f(0.0); }
+
+computeShaderCode :=
+	@group(0) @binding(0) var<storage, read_write> data: array<f32>; @compute @workgroup_size(64) fn cs_main(@builtin(global_invocation_id) gid: vec3u) { data[gid.x] = data[gid.x] * 2.0; }
+	@group(0) @binding(0) var<storage, read> input: array<f32>; @group(0) @binding(1) var<storage, read_write> output: array<f32>; @compute @workgroup_size(256) fn cs_main(@builtin(global_invocation_id) gid: vec3u) { output[gid.x] = input[gid.x] + 1.0; }
+	@group(0) @binding(0) var<storage, read_write> buf: array<u32>; @compute @workgroup_size(1) fn cs_main(@builtin(global_invocation_id) gid: vec3u) { buf[gid.x] = gid.x; }
+	struct Params { count: u32 }; @group(0) @binding(0) var<uniform> params: Params; @group(0) @binding(1) var<storage, read_write> data: array<f32>; @compute @workgroup_size(64) fn cs_main(@builtin(global_invocation_id) gid: vec3u) { if (gid.x < params.count) { data[gid.x] = data[gid.x] * data[gid.x]; } }
+	var<workgroup> shared_data: array<f32, 256>; @group(0) @binding(0) var<storage, read_write> data: array<f32>; @compute @workgroup_size(256) fn cs_main(@builtin(local_invocation_id) lid: vec3u, @builtin(global_invocation_id) gid: vec3u) { shared_data[lid.x] = data[gid.x]; workgroupBarrier(); data[gid.x] = shared_data[255u - lid.x]; }
+	@group(0) @binding(0) var<storage, read_write> data: array<vec4f>; @compute @workgroup_size(64) fn cs_main(@builtin(global_invocation_id) gid: vec3u) { data[gid.x] = normalize(data[gid.x]); }
+	@group(0) @binding(0) var<storage, read_write> counter: atomic<u32>; @compute @workgroup_size(64) fn cs_main() { atomicAdd(&counter, 1u); }
+
+vertexFragmentCode :=
+	+vertexShaderCode+\n+fragmentShaderCode+
+
+fullShaderCode :=
+	+vertexFragmentCode+
+	+computeShaderCode+
+
+%%% --- Descriptor objects ---
+
+bufferDescriptor :=
+	{size: +bufferSize+, usage: +bufferUsage+}
+	{size: +bufferSize+, usage: +bufferUsage+, mappedAtCreation: +common:bool+}
+	{size: +bufferSize+, usage: +bufferUsage+, label: "fuzz_buffer"}
+	{size: 0, usage: +bufferUsage+}
+	{size: 2147483647, usage: +bufferUsage+}
+
+textureDescriptor :=
+	{size: [+textureSize+, +textureSize+], format: +colorTextureFormat+, usage: +textureUsage+}
+	{size: [+textureSize+, +textureSize+, +arrayLayerCount+], format: +colorTextureFormat+, usage: +textureUsage+, dimension: +textureDimension+}
+	{size: [+textureSize+, +textureSize+], format: +colorTextureFormat+, usage: +textureUsage+, mipLevelCount: +mipLevelCount+}
+	{size: [+textureSize+, +textureSize+], format: +colorTextureFormat+, usage: +textureUsage+, sampleCount: +sampleCount+}
+	{size: [+textureSize+, +textureSize+], format: +depthStencilFormat+, usage: GPUTextureUsage.RENDER_ATTACHMENT}
+	{size: [+textureSize+, +textureSize+], format: +depthStencilFormat+, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC}
+	{size: [+textureSize+], format: +colorTextureFormat+, usage: +textureUsage+, dimension: "1d"}
+	{size: [+textureSize+, +textureSize+, +textureSize+], format: +colorTextureFormat+, usage: +textureUsage+, dimension: "3d"}
+	{size: {width: +textureSize+, height: +textureSize+}, format: +colorTextureFormat+, usage: +textureUsage+}
+	{size: [0, 0], format: +colorTextureFormat+, usage: +textureUsage+}
+	{size: [+textureSize+, +textureSize+], format: +renderableColorFormat+, usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC}
+
+textureViewDescriptor :=
+	{}
+	{format: +colorTextureFormat+}
+	{dimension: +textureViewDimension+}
+	{aspect: +textureAspect+}
+	{baseMipLevel: 0, mipLevelCount: +mipLevelCount+}
+	{baseArrayLayer: 0, arrayLayerCount: +arrayLayerCount+}
+	{format: +colorTextureFormat+, dimension: +textureViewDimension+, baseMipLevel: 0, mipLevelCount: 1, baseArrayLayer: 0, arrayLayerCount: 1}
+	{dimension: "2d", baseMipLevel: 0, mipLevelCount: 1}
+	{aspect: "depth-only"}
+	{aspect: "stencil-only"}
+
+samplerDescriptor :=
+	{}
+	{magFilter: +filterMode+, minFilter: +filterMode+}
+	{magFilter: +filterMode+, minFilter: +filterMode+, mipmapFilter: +mipmapFilterMode+}
+	{addressModeU: +addressMode+, addressModeV: +addressMode+, addressModeW: +addressMode+}
+	{magFilter: +filterMode+, minFilter: +filterMode+, mipmapFilter: +mipmapFilterMode+, addressModeU: +addressMode+, addressModeV: +addressMode+}
+	{compare: +compareFunction+}
+	{magFilter: +filterMode+, minFilter: +filterMode+, lodMinClamp: +float01+, lodMaxClamp: %range%(1-32)}
+	{maxAnisotropy: %range%(1-16)}
+	{magFilter: "linear", minFilter: "linear", mipmapFilter: "linear", addressModeU: +addressMode+, addressModeV: +addressMode+, addressModeW: +addressMode+, lodMinClamp: 0, lodMaxClamp: 32, maxAnisotropy: 1, label: "fuzz_sampler"}
+	{magFilter: "linear", minFilter: "linear", compare: +compareFunction+}
+
+%%% --- Blend / depth-stencil / multisample states ---
+
+blendComponent :=
+	{operation: +blendOperation+, srcFactor: +blendFactor+, dstFactor: +blendFactor+}
+
+blendState :=
+	{color: +blendComponent+, alpha: +blendComponent+}
+
+stencilFaceState :=
+	{compare: +compareFunction+, failOp: +stencilOperation+, depthFailOp: +stencilOperation+, passOp: +stencilOperation+}
+
+depthStencilState :=
+	{format: +depthStencilFormat+, depthWriteEnabled: +common:bool+, depthCompare: +compareFunction+}
+	{format: "depth24plus", depthWriteEnabled: true, depthCompare: "less"}
+	{format: "depth32float", depthWriteEnabled: true, depthCompare: "less-equal"}
+	{format: +depthStencilFormat+, depthWriteEnabled: +common:bool+, depthCompare: +compareFunction+, stencilFront: +stencilFaceState+, stencilBack: +stencilFaceState+}
+	{format: +depthStencilFormat+, depthWriteEnabled: +common:bool+, depthCompare: +compareFunction+, stencilReadMask: +smallUint+, stencilWriteMask: +smallUint+, depthBias: %range%(-100-100), depthBiasSlopeScale: +float01+, depthBiasClamp: +float01+}
+
+multisampleState :=
+	{}
+	{count: +sampleCount+}
+	{count: +sampleCount+, mask: 0xFFFFFFFF}
+	{count: +sampleCount+, alphaToCoverageEnabled: +common:bool+}
+
+%%% --- Color target / vertex buffer layout ---
+
+colorTargetState :=
+	{format: +renderableColorFormat+}
+	{format: +renderableColorFormat+, blend: +blendState+}
+	{format: +renderableColorFormat+, writeMask: %range%(0-15)}
+	{format: +renderableColorFormat+, blend: +blendState+, writeMask: %range%(0-15)}
+	{format: "rgba8unorm"}
+	{format: "bgra8unorm", blend: {color: {operation: "add", srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha"}, alpha: {operation: "add", srcFactor: "one", dstFactor: "zero"}}}
+
+vertexAttribute :=
+	{format: +vertexFormat+, offset: +offset+, shaderLocation: +bindingIndex+}
+
+vertexBufferLayout :=
+	{arrayStride: +bufferSize+, attributes: [+vertexAttribute+]}
+	{arrayStride: +bufferSize+, stepMode: +vertexStepMode+, attributes: [+vertexAttribute+]}
+	{arrayStride: +bufferSize+, stepMode: +vertexStepMode+, attributes: [+vertexAttribute+, +vertexAttribute+]}
+
+%%% --- Bind group layout entries ---
+
+bindGroupLayoutEntry :=
+	{binding: +bindingIndex+, visibility: +shaderStage+, buffer: {type: +bufferBindingType+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, buffer: {type: +bufferBindingType+, hasDynamicOffset: +common:bool+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, buffer: {type: +bufferBindingType+, minBindingSize: +bufferSize+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, sampler: {type: +samplerBindingType+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, texture: {sampleType: +textureSampleType+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, texture: {sampleType: +textureSampleType+, viewDimension: +textureViewDimension+, multisampled: +common:bool+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, storageTexture: {access: +storageTextureAccess+, format: +colorTextureFormat+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, storageTexture: {access: +storageTextureAccess+, format: +colorTextureFormat+, viewDimension: +textureViewDimension+}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, texture: {sampleType: "depth", viewDimension: "2d"}}
+	{binding: +bindingIndex+, visibility: +shaderStage+, externalTexture: {}}
+
+%%% --- Bind group entries ---
+
+bindGroupEntry :=
+	{binding: +bindingIndex+, resource: {buffer: !buffer!}}
+	{binding: +bindingIndex+, resource: {buffer: !buffer!, offset: +offset+}}
+	{binding: +bindingIndex+, resource: {buffer: !buffer!, offset: +offset+, size: +bufferSize+}}
+	{binding: +bindingIndex+, resource: !sampler!}
+	{binding: +bindingIndex+, resource: !textureView!}
+
+%%% --- Primitive state ---
+
+primitiveState :=
+	{}
+	{topology: +primitiveTopology+}
+	{topology: +primitiveTopology+, stripIndexFormat: +indexFormat+}
+	{topology: +primitiveTopology+, frontFace: +frontFace+, cullMode: +cullMode+}
+	{topology: "triangle-list", frontFace: "ccw", cullMode: "back"}
+	{topology: "triangle-strip", stripIndexFormat: +indexFormat+, frontFace: +frontFace+, cullMode: +cullMode+, unclippedDepth: +common:bool+}
+
+%%% --- Render pass attachments ---
+
+colorAttachment :=
+	{view: !textureView!, loadOp: +loadOp+, storeOp: +storeOp+, clearValue: +clearColor+}
+	{view: !textureView!, loadOp: "clear", storeOp: "store", clearValue: {r: 0, g: 0, b: 0, a: 1}}
+	{view: !textureView!, loadOp: "clear", storeOp: "store", clearValue: +clearColor+}
+	{view: !textureView!, loadOp: "load", storeOp: "store"}
+	{view: !textureView!, resolveTarget: !textureView!, loadOp: +loadOp+, storeOp: +storeOp+, clearValue: +clearColor+}
+	{view: !textureView!, loadOp: "clear", storeOp: "discard", clearValue: +clearColor+}
+
+depthStencilAttachment :=
+	{view: !textureView!, depthLoadOp: +loadOp+, depthStoreOp: +storeOp+, depthClearValue: +float01+}
+	{view: !textureView!, depthLoadOp: "clear", depthStoreOp: "store", depthClearValue: 1.0}
+	{view: !textureView!, depthLoadOp: +loadOp+, depthStoreOp: +storeOp+, depthClearValue: +float01+, stencilLoadOp: +loadOp+, stencilStoreOp: +storeOp+, stencilClearValue: 0}
+	{view: !textureView!, depthReadOnly: true}
+	{view: !textureView!, stencilReadOnly: true}
+
+renderPassDescriptor :=
+	{colorAttachments: [+colorAttachment+]}
+	{colorAttachments: [+colorAttachment+, +colorAttachment+]}
+	{colorAttachments: [+colorAttachment+], depthStencilAttachment: +depthStencilAttachment+}
+	{colorAttachments: [+colorAttachment+], label: "fuzz_render_pass"}
+	{colorAttachments: []}
+
+%%% --- Typed arrays for data upload ---
+
+typedArrayData :=
+	new Float32Array([%repeat%(%range%(0-9).%range%(0-9), ", ")])
+	new Float32Array(+bufferSize+)
+	new Float32Array(+bufferSize+).fill(0)
+	new Uint8Array(+bufferSize+)
+	new Uint8Array([%repeat%(%range%(0-255), ", ")])
+	new Uint16Array(+bufferSize+)
+	new Uint32Array([%repeat%(%range%(0-65535), ", ")])
+	new Uint32Array(+bufferSize+)
+	new Int32Array(+bufferSize+)
+	new Float32Array([0.0, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5])
+
+%%% --- Image copy / data layout ---
+
+imageCopyBuffer :=
+	{buffer: !buffer!, bytesPerRow: +bytesPerRow+, rowsPerImage: +textureSize+}
+	{buffer: !buffer!, offset: +offset+, bytesPerRow: +bytesPerRow+, rowsPerImage: +textureSize+}
+	{buffer: !buffer!, bytesPerRow: 256}
+
+imageCopyTexture :=
+	{texture: !texture!}
+	{texture: !texture!, mipLevel: %range%(0-4)}
+	{texture: !texture!, origin: [0, 0, 0]}
+	{texture: !texture!, mipLevel: %range%(0-4), origin: [%range%(0-32), %range%(0-32), %range%(0-4)], aspect: +textureAspect+}
+	{texture: !texture!, origin: {x: 0, y: 0, z: 0}}
+
+imageDataLayout :=
+	{bytesPerRow: +bytesPerRow+, rowsPerImage: +textureSize+}
+	{offset: +offset+, bytesPerRow: +bytesPerRow+, rowsPerImage: +textureSize+}
+	{bytesPerRow: 256}
+	{bytesPerRow: +bytesPerRow+}
+
+copySize :=
+	[+textureSize+, +textureSize+]
+	[+textureSize+, +textureSize+, 1]
+	[+textureSize+, +textureSize+, +arrayLayerCount+]
+	{width: +textureSize+, height: +textureSize+}
+	{width: +textureSize+, height: +textureSize+, depthOrArrayLayers: +arrayLayerCount+}
+	[1, 1, 1]
+	[0, 0, 0]
+
+%%% =========================================================================
+%%% Operations — organized by GPU object
+%%% =========================================================================
+
+%%% --- Buffer operations ---
+
+bufferOps :=
+	await !buffer!.mapAsync(+mapMode+)
+	!buffer!.mapAsync(+mapMode+)
+	await !buffer!.mapAsync(+mapMode+, +offset+)
+	await !buffer!.mapAsync(+mapMode+, +offset+, +bufferSize+)
+	!buffer!.getMappedRange()
+	!buffer!.getMappedRange(+offset+)
+	!buffer!.getMappedRange(+offset+, +bufferSize+)
+	new Float32Array(!buffer!.getMappedRange())
+	new Uint8Array(!buffer!.getMappedRange(+offset+, +bufferSize+)).set(+typedArrayData+)
+	!buffer!.unmap()
+	!buffer!.destroy()
+	!buffer!.size
+	!buffer!.usage
+	!buffer!.mapState
+	!buffer!.label
+
+%%% --- Texture operations ---
+
+textureOps :=
+	!texture!.createView()
+	!texture!.createView(+textureViewDescriptor+)
+	!texture!.destroy()
+	!texture!.width
+	!texture!.height
+	!texture!.depthOrArrayLayers
+	!texture!.mipLevelCount
+	!texture!.sampleCount
+	!texture!.dimension
+	!texture!.format
+	!texture!.usage
+	!texture!.label
+
+%%% --- Command encoder operations ---
+
+encoderOps :=
+	!commandEncoder!.copyBufferToBuffer(!buffer!, +offset+, !buffer!, +offset+, +bufferSize+)
+	!commandEncoder!.copyBufferToTexture(+imageCopyBuffer+, +imageCopyTexture+, +copySize+)
+	!commandEncoder!.copyTextureToBuffer(+imageCopyTexture+, +imageCopyBuffer+, +copySize+)
+	!commandEncoder!.copyTextureToTexture(+imageCopyTexture+, +imageCopyTexture+, +copySize+)
+	!commandEncoder!.clearBuffer(!buffer!)
+	!commandEncoder!.clearBuffer(!buffer!, +offset+)
+	!commandEncoder!.clearBuffer(!buffer!, +offset+, +bufferSize+)
+	!commandEncoder!.resolveQuerySet(!querySet!, 0, +smallUint+, !buffer!, +offset+)
+	!commandEncoder!.writeTimestamp(!querySet!, +smallUint+)
+	!commandEncoder!.insertDebugMarker("fuzz_marker")
+	!commandEncoder!.pushDebugGroup("fuzz_group")
+	!commandEncoder!.popDebugGroup()
+	!commandEncoder!.finish()
+	!commandEncoder!.label
+
+%%% --- Render pass encoder operations ---
+
+renderPassOps :=
+	!renderPass!.setPipeline(!renderPipeline!)
+	!renderPass!.setBindGroup(+groupIndex+, !bindGroup!)
+	!renderPass!.setBindGroup(+groupIndex+, !bindGroup!, [+dynamicOffset+])
+	!renderPass!.setBindGroup(+groupIndex+, null)
+	!renderPass!.setVertexBuffer(+bindingIndex+, !buffer!)
+	!renderPass!.setVertexBuffer(+bindingIndex+, !buffer!, +offset+)
+	!renderPass!.setVertexBuffer(+bindingIndex+, !buffer!, +offset+, +bufferSize+)
+	!renderPass!.setVertexBuffer(+bindingIndex+, null)
+	!renderPass!.setIndexBuffer(!buffer!, +indexFormat+)
+	!renderPass!.setIndexBuffer(!buffer!, +indexFormat+, +offset+)
+	!renderPass!.setIndexBuffer(!buffer!, +indexFormat+, +offset+, +bufferSize+)
+	!renderPass!.draw(+smallUint+)
+	!renderPass!.draw(+smallUint+, +smallUint+)
+	!renderPass!.draw(+smallUint+, +smallUint+, +smallUint+)
+	!renderPass!.draw(+smallUint+, +smallUint+, +smallUint+, +smallUint+)
+	!renderPass!.draw(3)
+	!renderPass!.draw(6, 1, 0, 0)
+	!renderPass!.drawIndexed(+smallUint+)
+	!renderPass!.drawIndexed(+smallUint+, +smallUint+)
+	!renderPass!.drawIndexed(+smallUint+, +smallUint+, +smallUint+)
+	!renderPass!.drawIndexed(+smallUint+, +smallUint+, +smallUint+, %range%(-10-10))
+	!renderPass!.drawIndexed(+smallUint+, +smallUint+, +smallUint+, %range%(-10-10), +smallUint+)
+	!renderPass!.drawIndirect(!buffer!, +offset+)
+	!renderPass!.drawIndexedIndirect(!buffer!, +offset+)
+	!renderPass!.setViewport(0, 0, +textureSize+, +textureSize+, +float01+, +float01+)
+	!renderPass!.setViewport(%range%(0-512), %range%(0-512), +textureSize+, +textureSize+, 0.0, 1.0)
+	!renderPass!.setScissorRect(0, 0, +textureSize+, +textureSize+)
+	!renderPass!.setScissorRect(%range%(0-512), %range%(0-512), +textureSize+, +textureSize+)
+	!renderPass!.setBlendConstant(+clearColor+)
+	!renderPass!.setBlendConstant([+colorValue+, +colorValue+, +colorValue+, +colorValue+])
+	!renderPass!.setStencilReference(+smallUint+)
+	!renderPass!.beginOcclusionQuery(+smallUint+)
+	!renderPass!.endOcclusionQuery()
+	!renderPass!.executeBundles([])
+	!renderPass!.insertDebugMarker("fuzz_rp_marker")
+	!renderPass!.pushDebugGroup("fuzz_rp_group")
+	!renderPass!.popDebugGroup()
+	!renderPass!.end()
+	!renderPass!.label
+
+%%% --- Compute pass encoder operations ---
+
+computePassOps :=
+	!computePass!.setPipeline(!computePipeline!)
+	!computePass!.setBindGroup(+groupIndex+, !bindGroup!)
+	!computePass!.setBindGroup(+groupIndex+, !bindGroup!, [+dynamicOffset+])
+	!computePass!.setBindGroup(+groupIndex+, null)
+	!computePass!.dispatchWorkgroups(+workgroupCount+)
+	!computePass!.dispatchWorkgroups(+workgroupCount+, +workgroupCount+)
+	!computePass!.dispatchWorkgroups(+workgroupCount+, +workgroupCount+, +workgroupCount+)
+	!computePass!.dispatchWorkgroupsIndirect(!buffer!, +offset+)
+	!computePass!.insertDebugMarker("fuzz_cp_marker")
+	!computePass!.pushDebugGroup("fuzz_cp_group")
+	!computePass!.popDebugGroup()
+	!computePass!.end()
+	!computePass!.label
+
+%%% --- Queue operations ---
+
+queueOps :=
+	!device!.queue.submit([!commandEncoder!.finish()])
+	!device!.queue.submit([])
+	!device!.queue.writeBuffer(!buffer!, +offset+, +typedArrayData+)
+	!device!.queue.writeBuffer(!buffer!, +offset+, +typedArrayData+, +offset+)
+	!device!.queue.writeBuffer(!buffer!, +offset+, +typedArrayData+, +offset+, +bufferSize+)
+	!device!.queue.writeBuffer(!buffer!, 0, new Float32Array([1.0, 2.0, 3.0, 4.0]))
+	!device!.queue.writeTexture(+imageCopyTexture+, +typedArrayData+, +imageDataLayout+, +copySize+)
+	!device!.queue.writeTexture({texture: !texture!}, +typedArrayData+, {bytesPerRow: 256}, [+textureSize+, +textureSize+])
+	await !device!.queue.onSubmittedWorkDone()
+	!device!.queue.onSubmittedWorkDone()
+	!device!.queue.label
+	!device!.queue.copyExternalImageToTexture({source: document.createElement("canvas")}, {texture: !texture!}, [+textureSize+, +textureSize+])
+	!device!.queue.copyExternalImageToTexture({source: document.createElement("img")}, {texture: !texture!, colorSpace: "srgb"}, [+textureSize+, +textureSize+])
+	!device!.queue.copyExternalImageToTexture({source: document.createElement("canvas"), flipY: true}, {texture: !texture!, premultipliedAlpha: true}, [+textureSize+, +textureSize+])
+
+%%% --- External texture operations ---
+
+externalTextureOps :=
+	!device!.importExternalTexture({source: document.createElement("video")})
+	!device!.importExternalTexture({source: document.createElement("video"), colorSpace: "srgb"})
+	!device!.importExternalTexture({source: document.createElement("video"), colorSpace: "display-p3"})
+
+%%% --- Canvas context operations ---
+
+canvasContextOps :=
+	!canvasContext!.configure({device: !device!, format: +preferredCanvasFormat+})
+	!canvasContext!.configure({device: !device!, format: +renderableColorFormat+})
+	!canvasContext!.configure({device: !device!, format: +renderableColorFormat+, alphaMode: +canvasAlphaMode+})
+	!canvasContext!.configure({device: !device!, format: +renderableColorFormat+, usage: +textureUsage+, alphaMode: +canvasAlphaMode+})
+	!canvasContext!.configure({device: !device!, format: "rgba8unorm", alphaMode: "opaque"})
+	!canvasContext!.getCurrentTexture()
+	!canvasContext!.getCurrentTexture().createView()
+	!canvasContext!.unconfigure()
+	!canvasContext!.canvas
+	!canvasContext!.canvas.width
+	!canvasContext!.canvas.height
+
+%%% --- Error handling ---
+
+errorOps :=
+	!device!.pushErrorScope(+errorFilter+)
+	await !device!.popErrorScope()
+	!device!.popErrorScope()
+	!device!.lost
+	await !device!.lost
+	!device!.onuncapturederror = (event) => { }
+	!device!.pushErrorScope("validation"); +deviceCreateOps+; await !device!.popErrorScope()
+	!device!.pushErrorScope("out-of-memory"); +deviceCreateOps+; await !device!.popErrorScope()
+	!device!.pushErrorScope("internal"); +deviceCreateOps+; await !device!.popErrorScope()
+
+%%% --- Device creation operations (also used by error handling) ---
+
+deviceCreateOps :=
+	!device!.createBuffer(+bufferDescriptor+)
+	!device!.createTexture(+textureDescriptor+)
+	!device!.createSampler(+samplerDescriptor+)
+	!device!.createBindGroupLayout({entries: [+bindGroupLayoutEntry+]})
+	!device!.createBindGroupLayout({entries: [+bindGroupLayoutEntry+, +bindGroupLayoutEntry+]})
+	!device!.createBindGroupLayout({entries: []})
+	!device!.createPipelineLayout({bindGroupLayouts: [!bindGroupLayout!]})
+	!device!.createPipelineLayout({bindGroupLayouts: []})
+	!device!.createShaderModule({code: `+fullShaderCode+`})
+	!device!.createShaderModule({code: `+vertexFragmentCode+`})
+	!device!.createShaderModule({code: `+computeShaderCode+`})
+	!device!.createShaderModule({code: ""})
+	!device!.createCommandEncoder()
+	!device!.createCommandEncoder({label: "fuzz_encoder"})
+	!device!.createQuerySet({type: +queryType+, count: +smallUint+})
+	!device!.createRenderBundleEncoder({colorFormats: [+renderableColorFormat+]})
+	!device!.createRenderBundleEncoder({colorFormats: [+renderableColorFormat+], depthStencilFormat: +depthStencilFormat+})
+
+%%% --- Device attribute reads ---
+
+deviceAttrOps :=
+	!device!.features
+	!device!.features.has("timestamp-query")
+	!device!.features.has("texture-compression-bc")
+	!device!.features.has("depth-clip-control")
+	!device!.features.has("shader-f16")
+	!device!.limits
+	!device!.limits.maxTextureDimension2D
+	!device!.limits.maxBufferSize
+	!device!.limits.maxBindGroups
+	!device!.limits.maxVertexAttributes
+	!device!.limits.maxComputeWorkgroupSizeX
+	!device!.limits.maxStorageBufferBindingSize
+	!device!.limits.maxUniformBufferBindingSize
+	!device!.queue
+	!device!.label
+	!device!.destroy()
+
+%%% --- Adapter operations ---
+
+adapterOps :=
+	!adapter!.features
+	!adapter!.limits
+	!adapter!.info
+	!adapter!.info.vendor
+	!adapter!.info.architecture
+	!adapter!.info.device
+	!adapter!.info.description
+	!adapter!.isFallbackAdapter
+
+%%% --- GPU global operations ---
+
+gpuOps :=
+	navigator.gpu
+	navigator.gpu.getPreferredCanvasFormat()
+	navigator.gpu.wgslLanguageFeatures
+
+%%% --- Pipeline / shader introspection ---
+
+pipelineOps :=
+	!computePipeline!.getBindGroupLayout(+groupIndex+)
+	!renderPipeline!.getBindGroupLayout(+groupIndex+)
+	!computePipeline!.label
+	!renderPipeline!.label
+	!shaderModule!.getCompilationInfo()
+	await !shaderModule!.getCompilationInfo()
+
+%%% --- All statements ---
+
+webgpuStmt :=
+	+bufferOps+
+	+textureOps+
+	+encoderOps+
+	+renderPassOps+
+	+computePassOps+
+	+queueOps+
+	+canvasContextOps+
+	+errorOps+
+	+deviceCreateOps+
+	+deviceAttrOps+
+	+adapterOps+
+	+gpuOps+
+	+pipelineOps+
+	+externalTextureOps+
+
+%%% =========================================================================
+%%% Variable Section
+%%% =========================================================================
+
+%section% := variable
+
+adapter :=
+	@ = await navigator.gpu.requestAdapter();
+	@ = await navigator.gpu.requestAdapter({powerPreference: +powerPreference+});
+	@ = await navigator.gpu.requestAdapter({forceFallbackAdapter: +common:bool+});
+
+device :=
+	@ = await !adapter!.requestDevice();
+	@ = await !adapter!.requestDevice({label: "fuzz_device"});
+	@ = await !adapter!.requestDevice({requiredLimits: {}});
+	@ = await !adapter!.requestDevice({requiredFeatures: []});
+
+buffer :=
+	@ = !device!.createBuffer(+bufferDescriptor+);
+
+texture :=
+	@ = !device!.createTexture(+textureDescriptor+);
+
+textureView :=
+	@ = !texture!.createView();
+	@ = !texture!.createView(+textureViewDescriptor+);
+
+sampler :=
+	@ = !device!.createSampler(+samplerDescriptor+);
+
+bindGroupLayout :=
+	@ = !device!.createBindGroupLayout({entries: [+bindGroupLayoutEntry+]});
+	@ = !device!.createBindGroupLayout({entries: [+bindGroupLayoutEntry+, +bindGroupLayoutEntry+]});
+	@ = !device!.createBindGroupLayout({entries: []});
+
+pipelineLayout :=
+	@ = !device!.createPipelineLayout({bindGroupLayouts: [!bindGroupLayout!]});
+	@ = !device!.createPipelineLayout({bindGroupLayouts: [!bindGroupLayout!, !bindGroupLayout!]});
+	@ = !device!.createPipelineLayout({bindGroupLayouts: []});
+
+bindGroup :=
+	@ = !device!.createBindGroup({layout: !bindGroupLayout!, entries: [+bindGroupEntry+]});
+	@ = !device!.createBindGroup({layout: !bindGroupLayout!, entries: [+bindGroupEntry+, +bindGroupEntry+]});
+	@ = !device!.createBindGroup({layout: !bindGroupLayout!, entries: []});
+	@ = !device!.createBindGroup({layout: !computePipeline!.getBindGroupLayout(0), entries: [+bindGroupEntry+]});
+	@ = !device!.createBindGroup({layout: !renderPipeline!.getBindGroupLayout(0), entries: [+bindGroupEntry+]});
+
+shaderModule :=
+	@ = !device!.createShaderModule({code: `+vertexShaderCode+\n+fragmentShaderCode+`});
+	@ = !device!.createShaderModule({code: `+computeShaderCode+`});
+	@ = !device!.createShaderModule({code: `+vertexFragmentCode+`});
+	@ = !device!.createShaderModule({code: `+vertexShaderCode+`});
+	@ = !device!.createShaderModule({code: ""});
+
+computePipeline :=
+	@ = !device!.createComputePipeline({layout: !pipelineLayout!, compute: {module: !shaderModule!, entryPoint: "cs_main"}});
+	@ = !device!.createComputePipeline({layout: "auto", compute: {module: !shaderModule!, entryPoint: "cs_main"}});
+	@ = !device!.createComputePipeline({layout: "auto", compute: {module: !shaderModule!}});
+	@ = await !device!.createComputePipelineAsync({layout: !pipelineLayout!, compute: {module: !shaderModule!, entryPoint: "cs_main"}});
+	@ = await !device!.createComputePipelineAsync({layout: "auto", compute: {module: !shaderModule!}});
+
+renderPipeline :=
+	@ = !device!.createRenderPipeline({layout: !pipelineLayout!, vertex: {module: !shaderModule!, entryPoint: "vs_main"}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [+colorTargetState+]}, primitive: +primitiveState+});
+	@ = !device!.createRenderPipeline({layout: "auto", vertex: {module: !shaderModule!, entryPoint: "vs_main"}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [+colorTargetState+]}});
+	@ = !device!.createRenderPipeline({layout: "auto", vertex: {module: !shaderModule!}, fragment: {module: !shaderModule!, targets: [+colorTargetState+]}});
+	@ = !device!.createRenderPipeline({layout: !pipelineLayout!, vertex: {module: !shaderModule!, entryPoint: "vs_main", buffers: [+vertexBufferLayout+]}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [+colorTargetState+]}, primitive: +primitiveState+, depthStencil: +depthStencilState+, multisample: +multisampleState+});
+	@ = !device!.createRenderPipeline({layout: "auto", vertex: {module: !shaderModule!, entryPoint: "vs_main", buffers: [+vertexBufferLayout+]}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [{format: "rgba8unorm"}]}, primitive: {topology: "triangle-list"}});
+	@ = await !device!.createRenderPipelineAsync({layout: "auto", vertex: {module: !shaderModule!, entryPoint: "vs_main"}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [+colorTargetState+]}});
+	@ = !device!.createRenderPipeline({layout: "auto", vertex: {module: !shaderModule!, entryPoint: "vs_main"}, fragment: {module: !shaderModule!, entryPoint: "fs_main", targets: [+colorTargetState+, +colorTargetState+]}});
+
+commandEncoder :=
+	@ = !device!.createCommandEncoder();
+	@ = !device!.createCommandEncoder({label: "fuzz_encoder"});
+
+renderPass :=
+	@ = !commandEncoder!.beginRenderPass(+renderPassDescriptor+);
+	@ = !commandEncoder!.beginRenderPass({colorAttachments: [{view: !textureView!, loadOp: "clear", storeOp: "store", clearValue: {r: 0, g: 0, b: 0, a: 1}}]});
+	@ = !commandEncoder!.beginRenderPass({colorAttachments: [{view: !textureView!, loadOp: "clear", storeOp: "store", clearValue: +clearColor+}], depthStencilAttachment: +depthStencilAttachment+});
+	@ = !commandEncoder!.beginRenderPass({colorAttachments: [{view: !textureView!, loadOp: "clear", storeOp: "store", clearValue: +clearColor+}], occlusionQuerySet: !querySet!});
+
+computePass :=
+	@ = !commandEncoder!.beginComputePass();
+	@ = !commandEncoder!.beginComputePass({label: "fuzz_compute_pass"});
+	@ = !commandEncoder!.beginComputePass({timestampWrites: {querySet: !querySet!, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1}});
+
+canvasContext :=
+	c = document.createElement("canvas"); (document.body || document.documentElement).appendChild(c); @ = c.getContext("webgpu");
+
+querySet :=
+	@ = !device!.createQuerySet({type: "occlusion", count: +smallUint+});
+	@ = !device!.createQuerySet({type: "timestamp", count: +smallUint+});
+	@ = !device!.createQuerySet({type: "occlusion", count: 4096});
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+webgpuStmt+

@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dharma Fuzzer</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --fg: #c9d1d9;
+        --accent: #58a6ff;
+        --panel: #161b22;
+        --border: #30363d;
+        --green: #3fb950;
+        --red: #f85149;
+        --yellow: #d29922;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+      }
+      .status .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--red);
+        transition: background 0.2s;
+      }
+      .status.connected .dot {
+        background: var(--green);
+      }
+
+      .stats {
+        display: flex;
+        gap: 20px;
+        margin-left: auto;
+        font-size: 13px;
+        color: #8b949e;
+      }
+      .stats span {
+        font-variant-numeric: tabular-nums;
+      }
+      .stats strong {
+        color: var(--fg);
+        font-weight: 500;
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .controls button,
+      .controls select {
+        background: var(--border);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 14px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: background 0.15s;
+      }
+      .controls button:hover,
+      .controls select:hover {
+        background: #484f58;
+      }
+      .controls button.active {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .controls label {
+        font-size: 12px;
+        color: #8b949e;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .controls input[type="range"] {
+        width: 80px;
+        accent-color: var(--accent);
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        gap: 12px;
+        overflow: hidden;
+      }
+      #target-frame {
+        flex: 1;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        min-height: 200px;
+      }
+      .mode-tab #target-frame {
+        display: none;
+      }
+      .mode-tab .tab-notice {
+        display: flex;
+      }
+      .tab-notice {
+        display: none;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        color: #8b949e;
+        font-size: 14px;
+        min-height: 200px;
+      }
+
+      #log {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        max-height: 180px;
+        overflow-y: auto;
+        font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        color: #8b949e;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      #log .err {
+        color: var(--red);
+      }
+      #log .ok {
+        color: var(--green);
+      }
+      #log .warn {
+        color: var(--yellow);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>&#x1f9ec; Dharma</h1>
+      <div class="status" id="status">
+        <span class="dot"></span>
+        <span id="status-text">Disconnected</span>
+      </div>
+      <div class="stats">
+        <span>Tests: <strong id="stat-count">0</strong></span>
+        <span>Errors: <strong id="stat-errors">0</strong></span>
+        <span>Rate: <strong id="stat-rate">0</strong>/s</span>
+      </div>
+      <div class="controls">
+        <label>Mode
+          <select id="mode-select">
+            <option value="iframe">Iframe</option>
+            <option value="tab">New Tab</option>
+          </select>
+        </label>
+        <button id="btn-toggle" title="Pause / Resume">&#x23f8; Pause</button>
+        <label
+          >Delay
+          <input
+            type="range"
+            id="delay"
+            min="0"
+            max="2000"
+            step="50"
+            value="0"
+          />
+          <span id="delay-val">0 ms</span>
+        </label>
+        <label>Tab TTL
+          <input
+            type="range"
+            id="tab-ttl"
+            min="200"
+            max="10000"
+            step="100"
+            value="2000"
+          />
+          <span id="tab-ttl-val">2000 ms</span>
+        </label>
+        <label>Concurrent Tabs
+          <input
+            type="range"
+            id="tab-count"
+            min="1"
+            max="10"
+            step="1"
+            value="1"
+          />
+          <span id="tab-count-val">1</span>
+        </label>
+      </div>
+    </header>
+    <main>
+      <iframe
+        id="target-frame"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-modals allow-forms allow-downloads allow-pointer-lock allow-presentation"
+        allow="accelerometer *; autoplay *; camera *; display-capture *; encrypted-media *; fullscreen *; gamepad *; geolocation *; gyroscope *; hid *; idle-detection *; magnetometer *; microphone *; midi *; payment *; picture-in-picture *; screen-wake-lock *; serial *; usb *; web-share *; xr-spatial-tracking *"
+        srcdoc=""
+      ></iframe>
+      <div class="tab-notice">
+        Test cases are running in separate tabs. Check pop-up permissions if no tabs open.
+      </div>
+      <div id="log"></div>
+    </main>
+    <script>
+      (function () {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const frame = $("target-frame"),
+          logEl = $("log");
+        const statusEl = $("status"),
+          statusText = $("status-text");
+        const statCount = $("stat-count"),
+          statErrors = $("stat-errors"),
+          statRate = $("stat-rate");
+        const btnToggle = $("btn-toggle"),
+          delaySlider = $("delay"),
+          delayVal = $("delay-val");
+        const modeSelect = $("mode-select"),
+          tabTtlSlider = $("tab-ttl"),
+          tabTtlVal = $("tab-ttl-val");
+        const tabCountSlider = $("tab-count"),
+          tabCountVal = $("tab-count-val");
+
+        let ws,
+          paused = false,
+          count = 0,
+          errors = 0,
+          lastCount = 0,
+          delay = 0,
+          mode = "iframe",
+          tabTtl = 2000,
+          tabPoolSize = 1,
+          tabPool = [],   /* [{tab, blobUrl, timer}] */
+          targetTab = null,
+          lastBlobUrl = null;
+
+        /* --- Mode switching --- */
+        modeSelect.addEventListener("change", () => {
+          mode = modeSelect.value;
+          document.body.classList.toggle("mode-tab", mode === "tab");
+          if (mode === "iframe") {
+            tabPool.forEach(entry => {
+              try { if (entry.tab && !entry.tab.closed) entry.tab.close(); } catch (_) {}
+              if (entry.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+              if (entry.timer) clearTimeout(entry.timer);
+            });
+            tabPool = [];
+          }
+          log("Switched to " + mode + " mode", "ok");
+        });
+
+        tabTtlSlider.addEventListener("input", () => {
+          tabTtl = +tabTtlSlider.value;
+          tabTtlVal.textContent = tabTtl + " ms";
+        });
+
+        tabCountSlider.addEventListener("input", () => {
+          tabPoolSize = +tabCountSlider.value;
+          tabCountVal.textContent = tabPoolSize;
+        });
+
+        delaySlider.addEventListener("input", () => {
+          delay = +delaySlider.value;
+          delayVal.textContent = delay + " ms";
+        });
+
+        btnToggle.addEventListener("click", () => {
+          paused = !paused;
+          btnToggle.innerHTML = paused ? "&#x25b6; Resume" : "&#x23f8; Pause";
+          btnToggle.classList.toggle("active", paused);
+          if (!paused && ws && ws.readyState === 1) requestNext();
+        });
+
+        setInterval(() => {
+          const rate = count - lastCount;
+          lastCount = count;
+          statRate.textContent = rate;
+        }, 1000);
+
+        function log(msg, cls) {
+          const el = document.createElement("div");
+          if (cls) el.className = cls;
+          el.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+          logEl.appendChild(el);
+          if (logEl.children.length > 500) logEl.removeChild(logEl.firstChild);
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function requestNext() {
+          if (paused || !ws || ws.readyState !== 1) return;
+          ws.send(JSON.stringify({ status: "success" }));
+        }
+
+        function scheduleNext() {
+          if (delay > 0) setTimeout(requestNext, delay);
+          else requestNext();
+        }
+
+        /* --- Iframe execution --- */
+        function executeInIframe(html) {
+          try {
+            frame.srcdoc = html;
+          } catch (err) {
+            errors++;
+            statErrors.textContent = errors;
+            log("Frame error: " + err.message, "err");
+          }
+          scheduleNext();
+        }
+
+        /* --- New-tab execution (concurrent tab pool) --- */
+        function executeInTab(html) {
+          try {
+            var blob = new Blob([html], { type: "text/html" });
+            var blobUrl = URL.createObjectURL(blob);
+            var tab = window.open(blobUrl, "_blank");
+            if (!tab) {
+              log("Pop-up blocked — allow pop-ups for this site or use iframe mode", "err");
+              errors++;
+              statErrors.textContent = errors;
+              URL.revokeObjectURL(blobUrl);
+              scheduleNext();
+              return;
+            }
+            var entry = { tab: tab, blobUrl: blobUrl, timer: null };
+            tabPool.push(entry);
+            entry.timer = setTimeout(() => {
+              try { if (entry.tab && !entry.tab.closed) entry.tab.close(); } catch (_) {}
+              URL.revokeObjectURL(entry.blobUrl);
+              var idx = tabPool.indexOf(entry);
+              if (idx >= 0) tabPool.splice(idx, 1);
+            }, tabTtl);
+          } catch (err) {
+            errors++;
+            statErrors.textContent = errors;
+            log("Tab error: " + err.message, "err");
+          }
+          /* Request next immediately if pool has room, otherwise wait for a slot */
+          if (tabPool.length < tabPoolSize) {
+            scheduleNext();
+          } else {
+            /* Wait until a tab closes and frees a slot */
+            var checkSlot = setInterval(() => {
+              if (tabPool.length < tabPoolSize) {
+                clearInterval(checkSlot);
+                scheduleNext();
+              }
+            }, 50);
+          }
+        }
+
+        function connect() {
+          const proto = location.protocol === "https:" ? "wss:" : "ws:";
+          ws = new WebSocket(proto + "//" + location.host + "/ws");
+
+          ws.onopen = () => {
+            statusEl.classList.add("connected");
+            statusText.textContent = "Connected";
+            log("Connected to Dharma server", "ok");
+            ws.send(JSON.stringify({ status: "open" }));
+          };
+
+          ws.onmessage = (e) => {
+            count++;
+            statCount.textContent = count;
+            if (mode === "tab") {
+              executeInTab(e.data);
+            } else {
+              executeInIframe(e.data);
+            }
+          };
+
+          ws.onclose = () => {
+            statusEl.classList.remove("connected");
+            statusText.textContent = "Disconnected";
+            log("Disconnected \u2014 reconnecting in 2 s\u2026", "warn");
+            setTimeout(connect, 2000);
+          };
+
+          ws.onerror = () => {
+            errors++;
+            statErrors.textContent = errors;
+            log("WebSocket error", "err");
+          };
+        }
+
+        window.addEventListener("message", (e) => {
+          if (e.data && e.data.type === "dharma-error") {
+            errors++;
+            statErrors.textContent = errors;
+            log("Test error: " + e.data.message, "err");
+            /* Report error back to server for logging */
+            if (ws && ws.readyState === 1) {
+              ws.send(JSON.stringify({status: "error", message: e.data.message}));
+            }
+          }
+        });
+
+        /* Clean up on page close */
+        window.addEventListener("beforeunload", () => {
+          tabPool.forEach(entry => {
+            try { if (entry.tab && !entry.tab.closed) entry.tab.close(); } catch (_) {}
+            if (entry.blobUrl) URL.revokeObjectURL(entry.blobUrl);
+            if (entry.timer) clearTimeout(entry.timer);
+          });
+          tabPool = [];
+        });
+
+        connect();
+      })();
+    </script>
+  </body>
+</html>

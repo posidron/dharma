@@ -1,85 +1,250 @@
 #!/usr/bin/env python3
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""Command-line interface for Dharma."""
+from __future__ import annotations
+
 import argparse
+import asyncio
 import logging
 import os
 import random
 import struct
 import sys
+from importlib.metadata import version, PackageNotFoundError
+from pathlib import Path
 
-from .__version__ import __version__, __title__
+from .core.cdp import DharmaCDPRunner
 from .core.dharma import DharmaMachine
 from .core.websocket import DharmaWebSocketServer
 
+try:
+    __version__ = version("dharma")
+except PackageNotFoundError:
+    __version__ = "2.0.0-dev"
+
+_EXAMPLES = """\
+examples:
+  %(prog)s -grammars grammar.dg
+  %(prog)s -grammars grammar.dg -count 100 -storage ./output
+  %(prog)s -grammars a.dg b.dg -server -template tpl.html
+  %(prog)s -grammars grammar.dg -cdp -cdp-port 9222
+"""
+
 
 class DharmaCommandLine:
+    """Entry point for the ``dharma`` command."""
+
     @staticmethod
-    def parse_args():
+    def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser = argparse.ArgumentParser(
-            add_help=False,
-            description='Dharma Runtime',
-            epilog='The exit status is 0 for non-failures and -1 for failures.',
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-            prog=__title__
+            prog="dharma",
+            description="Dharma — generation-based, context-free grammar fuzzer",
+            epilog=_EXAMPLES,
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
-        m = parser.add_argument_group('mandatory arguments')
-        m.add_argument('-grammars', metavar='file', type=argparse.FileType(), nargs='+', required=True,
-                       help='input grammars')
+        # --- required ---
+        req = parser.add_argument_group("required")
+        req.add_argument(
+            "-grammars",
+            "--grammars",
+            metavar="FILE",
+            type=argparse.FileType(),
+            nargs="+",
+            required=True,
+            help="Grammar files (.dg)",
+        )
 
-        o = parser.add_argument_group('optional arguments')
-        o.add_argument('-count', metavar='#', type=int, default=1, help='number of test cases')
-        o.add_argument('-format', metavar='ext', default='html', help='format of test cases')
-        o.add_argument('-h', '-help', '--help', action='help', help=argparse.SUPPRESS)
-        o.add_argument('-logging', metavar='#', default=10, type=int, choices=range(10, 60, 10),
-                       help='verbosity level of logging')
-        o.add_argument('-prefix', metavar='file', type=argparse.FileType(), help='prefix data')
-        o.add_argument('-recursion-limit', metavar='#', type=int, default=20000,
-                       help='max python recursion limit')
-        o.add_argument('-seed', metavar='#', type=int,
-                       help='seed value for random, os.urandom will be used if not specified')
-        o.add_argument('-server', action='store_true', help='run in server mode')
-        o.add_argument('-server-host', metavar='host', type=str, default='127.0.0.1', help='server address')
-        o.add_argument('-server-port', metavar='#', type=int, default=9090, help='server port')
-        o.add_argument('-settings', metavar='file', type=argparse.FileType(),
-                       default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'settings.py'),
-                       help='')
-        o.add_argument('-storage', metavar='path', help='folder for test cases')
-        o.add_argument('-suffix', metavar='file', type=argparse.FileType(), help='suffix data')
-        o.add_argument('-template', metavar='file', type=argparse.FileType(), help='template data')
-        o.add_argument('-version', action='version', version='%(prog)s {}'.format(__version__),
-                       help=argparse.SUPPRESS)
+        # --- generation ---
+        gen = parser.add_argument_group("generation")
+        gen.add_argument(
+            "-count",
+            "--count",
+            metavar="N",
+            type=int,
+            default=1,
+            help="Number of test cases (default: 1)",
+        )
+        gen.add_argument(
+            "-format",
+            "--format",
+            metavar="EXT",
+            default="html",
+            help="Output file extension (default: html)",
+        )
+        gen.add_argument(
+            "-seed",
+            "--seed",
+            metavar="N",
+            type=int,
+            help="Random seed (default: from os.urandom)",
+        )
+        gen.add_argument(
+            "-recursion-limit",
+            "--recursion-limit",
+            metavar="N",
+            type=int,
+            default=20000,
+            help="Python recursion limit (default: 20000)",
+        )
 
-        return parser.parse_args()
+        # --- server ---
+        srv = parser.add_argument_group("server")
+        srv.add_argument(
+            "-server", "--server", action="store_true", help="Run WebSocket server"
+        )
+        srv.add_argument(
+            "-server-host",
+            "--server-host",
+            metavar="HOST",
+            default="127.0.0.1",
+            help="Bind address (default: 127.0.0.1)",
+        )
+        srv.add_argument(
+            "-server-port",
+            "--server-port",
+            metavar="PORT",
+            type=int,
+            default=9090,
+            help="Bind port (default: 9090)",
+        )
+        srv.add_argument(
+            "-server-mode",
+            "--server-mode",
+            metavar="MODE",
+            choices=["iframe", "tab"],
+            default="iframe",
+            help="Browser harness execution mode (default: iframe)",
+        )
+
+        # --- CDP ---
+        cdp = parser.add_argument_group("cdp")
+        cdp.add_argument(
+            "-cdp", "--cdp", action="store_true",
+            help="Feed test cases via Chrome DevTools Protocol",
+        )
+        cdp.add_argument(
+            "-cdp-host", "--cdp-host", metavar="HOST", default="127.0.0.1",
+            help="Chrome debug host (default: 127.0.0.1)",
+        )
+        cdp.add_argument(
+            "-cdp-port", "--cdp-port", metavar="PORT", type=int, default=9222,
+            help="Chrome debug port (default: 9222)",
+        )
+        cdp.add_argument(
+            "-cdp-ttl", "--cdp-ttl", metavar="SEC", type=float, default=2.0,
+            help="Seconds to wait per test case (default: 2.0)",
+        )
+
+        # --- file I/O ---
+        fio = parser.add_argument_group("files")
+        fio.add_argument(
+            "-storage",
+            "--storage",
+            metavar="DIR",
+            help="Output directory for test cases",
+        )
+        fio.add_argument(
+            "-prefix",
+            "--prefix",
+            metavar="FILE",
+            type=argparse.FileType(),
+            help="Content prepended to every test case",
+        )
+        fio.add_argument(
+            "-suffix",
+            "--suffix",
+            metavar="FILE",
+            type=argparse.FileType(),
+            help="Content appended to every test case",
+        )
+        fio.add_argument(
+            "-template",
+            "--template",
+            metavar="FILE",
+            type=argparse.FileType(),
+            help="Template file (use $testcase_content placeholder)",
+        )
+
+        # --- debug ---
+        dbg = parser.add_argument_group("debug")
+        dbg.add_argument(
+            "-logging",
+            "--logging",
+            metavar="LVL",
+            type=int,
+            default=20,
+            choices=range(10, 60, 10),
+            help="Logging level (10=DEBUG … 50=CRITICAL, default: 20)",
+        )
+        dbg.add_argument(
+            "-version",
+            "--version",
+            action="version",
+            version=f"%(prog)s {__version__}",
+        )
+
+        return parser.parse_args(argv)
 
     @classmethod
-    def main(cls):
-        args = cls.parse_args()
+    def main(cls, argv: list[str] | None = None) -> int:
+        args = cls.parse_args(argv)
+
         sys.setrecursionlimit(args.recursion_limit)
-        logging.basicConfig(format='[Dharma] %(asctime)s %(levelname)s: %(message)s', level=args.logging)
+        logging.basicConfig(
+            format="[dharma] %(asctime)s %(levelname)s: %(message)s",
+            level=args.logging,
+        )
+
+        # Seed
         if args.seed is None:
-            args.seed = struct.unpack('q', os.urandom(8))[0]
+            args.seed = struct.unpack("q", os.urandom(8))[0]
         random.seed(args.seed)
-        logging.info('Machine random seed: %d', args.seed)
-        prefix_data = '' if not args.prefix else args.prefix.read()
-        suffix_data = '' if not args.suffix else args.suffix.read()
-        template_data = '' if not args.template else args.template.read()
-        dharma = DharmaMachine(prefix_data, suffix_data, template_data)
-        dharma.process_settings(args.settings)
-        dharma.process_grammars(args.grammars)
+        logging.info("Random seed: %d", args.seed)
+
+        # Build machine
+        prefix = args.prefix.read() if args.prefix else ""
+        suffix = args.suffix.read() if args.suffix else ""
+        template = args.template.read() if args.template else ""
+
+        # Close file handles opened by argparse
+        for fh in (args.prefix, args.suffix, args.template):
+            if fh is not None:
+                fh.close()
+
+        dharma = DharmaMachine(prefix, suffix, template)
+
+        try:
+            dharma.process_grammars(args.grammars)
+        except Exception as exc:
+            logging.error("Grammar processing failed: %s", exc)
+            return 1
+
+        # Run
         if args.storage:
-            dharma.generate_testcases(args.storage, args.format, args.count)
-        elif args.server:
-            server = DharmaWebSocketServer(dharma, (args.server_host, args.server_port))
             try:
-                server.start()
+                dharma.generate_testcases(args.storage, args.format, args.count)
+            except Exception as exc:
+                logging.error("Failed writing test cases: %s", exc)
+                return 1
+        elif args.server:
+            server = DharmaWebSocketServer(
+                dharma, args.server_host, args.server_port,
+                harness_mode=args.server_mode,
+            )
+            try:
+                asyncio.run(server.start())
             except KeyboardInterrupt:
                 pass
-            finally:
-                server.stop()
+        elif args.cdp:
+            runner = DharmaCDPRunner(
+                dharma, args.cdp_host, args.cdp_port, args.cdp_ttl
+            )
+            try:
+                asyncio.run(runner.run())
+            except KeyboardInterrupt:
+                pass
         else:
             for _ in range(args.count):
                 print(dharma.generate_content())
+
         return 0

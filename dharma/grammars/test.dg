@@ -1,29 +1,175 @@
-%const% VARIANCE_MIN := 4
-%const% VARIANCE_MAX := 12
+%%% Test Grammar — comprehensive Dharma feature showcase
+%%%
+%%% Run:  dharma -grammars dharma/grammars/test.dg
+%%%
+%%% Demonstrates every grammar feature:
+%%%   Directives:
+%%%     %const%    — configure output limits, template wrapping, etc.
+%%%     %require%  — declare grammar dependencies
+%%%     %section%  — switch between value / variable / output sections
+%%%   Value rules:
+%%%     +value+    — cross-reference to a value rule
+%%%     +ns:value+ — cross-reference to a rule in another grammar namespace
+%%%   Variable rules:
+%%%     @          — bare self-reference (auto-numbered variable name)
+%%%     @name@     — explicit element reference
+%%%     !variable! — reference to a variable (creates or reuses)
+%%%   Extensions:
+%%%     %weight%(N)              — weighted alternative selection
+%%%     %range%(a-b)             — random value in range (int, float, hex, char)
+%%%     %choice%(a, b, c)        — uniform random pick from list
+%%%     %repeat%(expr)           — repeat expression random number of times
+%%%     %repeat%(expr, sep)      — repeat with separator
+%%%     %repeat%(expr, sep, nodups) — repeat with deduplication
+%%%     %optional%(expr, prob)   — include expression with probability
+%%%     %unique%(a, b)           — generate distinct values for a and b
+%%%   Output template:
+%%%     OUTPUT_TEMPLATE          — wraps each output statement
+
+%%% =========================================================================
+%%% Constants — configure generation behavior
+%%% =========================================================================
+
+%const% OUTPUT_MIN := 3
+%const% OUTPUT_MAX := 8
+%const% OUTPUT_TEMPLATE := "/* %s */"
+%const% MAX_REPEAT_POWER := 3
+
+%%% =========================================================================
+%%% Dependency declaration
+%%% =========================================================================
+
+%require% common
+
+%%% =========================================================================
+%%% Value section — named productions
+%%% =========================================================================
 
 %section% := value
 
-dictContent :=
-    a: null
-    b: {}
+%%% --- Basic alternatives ---
 
-dictObject :=
-    {+dictContent+}
+color :=
+	red
+	green
+	blue
+	yellow
+	purple
 
-testStmnt :=
-    !pc_l! = !pc_r!
-    !pc_r! = !pc_l!
+animal :=
+	cat
+	dog
+	parrot
+	turtle
+
+%%% --- Weighted alternatives: 'hello' is 5x more likely than 'goodbye' ---
+
+greeting :=
+	%weight%(5) hello
+	%weight%(1) goodbye
+	%weight%(2) hey there
+
+%%% --- Range extension: int, float, hex, char ---
+
+randomInt :=
+	%range%(0-100)
+
+negativeRange :=
+	%range%(-50-50)
+
+randomFloat :=
+	%range%(0.0-1.0)
+
+randomHex :=
+	0x%range%(0x00-0xFF)
+
+randomChar :=
+	%range%(a-z)
+
+%%% --- Choice extension: uniform pick from list ---
+
+fruit :=
+	%choice%(apple, banana, cherry, date, elderberry)
+
+%%% --- Repeat extension ---
+
+csvNumbers :=
+	%repeat%(%range%(0-9), ", ")
+
+noDupColors :=
+	%repeat%(+color+, " ", nodups)
+
+%%% --- Optional extension: include ~50% of the time ---
+
+maybeTag :=
+	%optional%([+fruit+], 0.5)
+
+%%% --- Composition: rules referencing other rules ---
+
+sentence :=
+	The +color+ +animal+ says +greeting+
+	I have %range%(1-10) +fruit+s
+	Color list: +noDupColors+
+
+%%% --- Cross-grammar reference to common.dg ---
+
+withNumber :=
+	item_+common:number+
+
+withBool :=
+	enabled: +common:bool+
+
+%%% --- Complex nested expressions ---
+
+dictValue :=
+	null
+	true
+	false
+	%range%(0-999)
+	"+greeting+"
+	[%repeat%(+dictValue+, ", ")]
+	{+dictEntry+}
+
+dictEntry :=
+	"+color+": +dictValue+
+
+jsonObject :=
+	{%repeat%(+dictEntry+, ", ")}
+
+%%% =========================================================================
+%%% Variable section — stateful, auto-numbered constructors
+%%% =========================================================================
 
 %section% := variable
 
-pc_l :=
-    let @pc_l@ = new +dictObject+;
+%%% --- Bare @ syntax: auto-numbered variable name ---
 
-pc_r :=
-    let @pc_r@ = new +dictObject+;
+basket :=
+	let @ = new FruitBasket("+fruit+", %range%(1-20));
 
-%section% := variance
+cup :=
+	let @ = new ColorCup("+color+");
+
+%%% --- Variables referencing other variables via !var! ---
+%%% The engine ensures 'basket' variables are created before 'order' uses them.
+
+order :=
+	let @ = new Order(!basket!, !cup!, +randomInt+);
+
+%%% =========================================================================
+%%% Output section — entry points for test case assembly
+%%% =========================================================================
+
+%section% := output
+
+%%% --- Multiple output rules: engine picks randomly ---
 
 main :=
-    +testStmnt+
-
+	console.log(+sentence+)
+	console.log(+jsonObject+)
+	console.log("%unique%(!basket!, !basket!)")
+	!order!.process(+randomFloat+)
+	!basket!.add("+fruit+", %range%(1-5))
+	!cup!.fill("+color+", +randomFloat+)
+	console.log(+withNumber+, +withBool+)
+	!basket!.tag(+maybeTag+)

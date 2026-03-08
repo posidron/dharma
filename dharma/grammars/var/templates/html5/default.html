@@ -1,11 +1,28 @@
-<DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
 <script>
-	function testcase() {
-		$testcase_content
-	}
+  window.onerror = function(msg, src, line, col, err) {
+    try {
+      var data = {type: "dharma-error", message: msg + " at " + line + ":" + col};
+      if (window.opener) window.opener.postMessage(data, "*");
+      else if (parent !== window) parent.postMessage(data, "*");
+    } catch(e) {}
+  };
 </script>
 </head>
-<body onload="testcase()"></body>
+<body>
+<script type="module">
+  try {
+    $testcase_content
+  } catch(e) {
+    try {
+      var data = {type: "dharma-error", message: e.message};
+      if (window.opener) window.opener.postMessage(data, "*");
+      else if (parent !== window) parent.postMessage(data, "*");
+    } catch(e2) {}
+  }
+</script>
+</body>
 </html>

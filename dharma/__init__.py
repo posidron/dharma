@@ -1,7 +1,11 @@
-# coding=utf-8
-"dharma module"
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""Dharma — generation-based, context-free grammar fuzzer."""
+from importlib.metadata import version, PackageNotFoundError
 
-from .dharma import *  # noqa pylint: disable=wildcard-import
+from dharma.dharma import DharmaCommandLine
+
+try:
+    __version__ = version("dharma")
+except PackageNotFoundError:
+    __version__ = "2.0.0-dev"
+
+__all__ = ["DharmaCommandLine", "__version__"]

@@ -16,18 +16,22 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-import dharma.__version__
+from importlib.metadata import version as _get_version, PackageNotFoundError
+try:
+    _version = _get_version("dharma")
+except PackageNotFoundError:
+    _version = "2.0.0-dev"
 
 # -- Project information -----------------------------------------------------
 
 project = 'Dharma'
-copyright = '2018, Mozilla Fuzzing Team'
-author = 'Mozilla Fuzzing Team'
+copyright = '2026, Christoph Diehl'
+author = 'Christoph Diehl'
 
 # The short X.Y version
-version = dharma.__version__.__version__
+version = _version
 # The full version, including alpha/beta/rc tags
-release = dharma.__version__.__version__
+release = _version
 
 
 # -- General configuration ---------------------------------------------------
@@ -134,7 +138,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Dharma.tex', 'Dharma Documentation',
-     'Mozilla Fuzzing Team', 'manual'),
+     'Christoph Diehl', 'manual'),
 ]
 
 

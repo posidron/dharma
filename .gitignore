@@ -1,21 +1,64 @@
 # Python byte-compiled
 __pycache__/
 *.py[cod]
+*$py.class
 
-# Python distribution
+# Python distribution / packaging
 dist/
 build/
 sdist/
 *.egg
 *.egg-info/
+*.whl
+wheels/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+.python-version
 
 # Sphinx documentation
 docs/_build/
+docs/build/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
 
 # Platform
 .DS_Store
+Thumbs.db
+Desktop.ini
+._*
 
 # Testing / Coverage
-.tox
+.tox/
+.nox/
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy / type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# Ruff
+.ruff_cache/
+
+# Outputs
+output/
+*.log

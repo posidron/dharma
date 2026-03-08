@@ -1,0 +1,919 @@
+%%% WGSL Shader Grammar for WebGPU Shader Compiler Fuzzing
+%%% W3C Candidate Recommendation Draft, 29 January 2026
+%%% https://www.w3.org/TR/WGSL/
+%%%
+%%% Generates randomized WGSL modules targeting:
+%%%   - Shader compiler parser
+%%%   - Type checker
+%%%   - Code generator / optimizer
+%%%   - IEEE-754 edge cases
+%%%   - Built-in function overloads
+%%%   - Address space constraints
+%%%   - Uniformity analysis
+%%%   - Texture/sampler built-ins
+%%%   - Atomic operations
+%%%   - Synchronization barriers
+%%%   - Extensions (f16, subgroups)
+%%%
+%%% Usage modes:
+%%%   1. Shader compiler fuzzing (standalone):
+%%%        dharma -grammars wgsl.dg common.dg
+%%%      Wraps random WGSL in createShaderModule() calls.
+%%%
+%%%   2. WebGPU API fuzzing (sample shaders only):
+%%%        dharma -grammars webgpu.dg common.dg
+%%%      Uses known-good shaders so pipelines compile.
+%%%
+%%%   3. Combined (WebGPU API + random WGSL shaders):
+%%%        dharma -grammars webgpu.dg wgsl.dg common.dg
+%%%      Random WGSL alternatives merge into webgpu.dg's shader
+%%%      rules via dharma's rule-merging. Some shader compilations
+%%%      will fail — that's the point (fuzz both compiler + API).
+%require% common
+%section% := value
+
+%%% =========================================================================
+%%% Module-level directives (§4)
+%%% =========================================================================
+
+enableDirective :=
+	enable f16;
+	enable subgroups;
+	enable subgroups_f16;
+	enable clip_distances;
+	enable dual_source_blending;
+
+diagnosticDirective :=
+	diagnostic(off, derivative_uniformity);
+	diagnostic(warning, derivative_uniformity);
+	diagnostic(error, derivative_uniformity);
+	diagnostic(info, derivative_uniformity);
+
+moduleDirective :=
+	+enableDirective+
+	+diagnosticDirective+
+
+%%% =========================================================================
+%%% WGSL Scalar Types (§6.2)
+%%% =========================================================================
+
+scalarType :=
+	bool
+	i32
+	u32
+	f32
+	f16
+
+numericScalarType :=
+	i32
+	u32
+	f32
+
+%%% =========================================================================
+%%% WGSL Vector / Matrix Types (§6.2.6, §6.2.7)
+%%% =========================================================================
+
+vecN :=
+	vec2
+	vec3
+	vec4
+
+vecType :=
+	vec2<+numericScalarType+>
+	vec3<+numericScalarType+>
+	vec4<+numericScalarType+>
+	vec2f
+	vec3f
+	vec4f
+	vec2i
+	vec3i
+	vec4i
+	vec2u
+	vec3u
+	vec4u
+	vec2h
+	vec3h
+	vec4h
+
+matType :=
+	mat2x2f
+	mat2x3f
+	mat2x4f
+	mat3x2f
+	mat3x3f
+	mat3x4f
+	mat4x2f
+	mat4x3f
+	mat4x4f
+	mat2x2<f32>
+	mat3x3<f32>
+	mat4x4<f32>
+	mat2x2h
+	mat3x3h
+	mat4x4h
+
+%%% =========================================================================
+%%% WGSL Composite Types (§6.2.9, §6.2.10)
+%%% =========================================================================
+
+arrayType :=
+	array<+numericScalarType+, +smallArraySize+>
+	array<+vecType+, +smallArraySize+>
+	array<f32, +smallArraySize+>
+	array<vec4f, +smallArraySize+>
+
+smallArraySize :=
+	1
+	2
+	3
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+	%range%(1-1024)
+	0
+	+common:number+
+
+%%% =========================================================================
+%%% Texture / Sampler types (§6.2.14, §6.2.15)
+%%% =========================================================================
+
+textureType :=
+	texture_1d<f32>
+	texture_2d<f32>
+	texture_2d<i32>
+	texture_2d<u32>
+	texture_2d_array<f32>
+	texture_3d<f32>
+	texture_cube<f32>
+	texture_cube_array<f32>
+	texture_multisampled_2d<f32>
+	texture_multisampled_2d<i32>
+	texture_multisampled_2d<u32>
+	texture_depth_2d
+	texture_depth_2d_array
+	texture_depth_cube
+	texture_depth_cube_array
+	texture_depth_multisampled_2d
+	texture_external
+
+storageTexelFormat :=
+	rgba8unorm
+	rgba8snorm
+	rgba8uint
+	rgba8sint
+	rgba16uint
+	rgba16sint
+	rgba16float
+	r32uint
+	r32sint
+	r32float
+	rg32uint
+	rg32sint
+	rg32float
+	rgba32uint
+	rgba32sint
+	rgba32float
+
+storageTextureType :=
+	texture_storage_1d<+storageTexelFormat+, write>
+	texture_storage_2d<+storageTexelFormat+, write>
+	texture_storage_2d<+storageTexelFormat+, read>
+	texture_storage_2d<+storageTexelFormat+, read_write>
+	texture_storage_2d_array<+storageTexelFormat+, write>
+	texture_storage_3d<+storageTexelFormat+, write>
+
+samplerType :=
+	sampler
+	sampler_comparison
+
+%%% =========================================================================
+%%% Type combinators
+%%% =========================================================================
+
+plainType :=
+	+scalarType+
+	+vecType+
+	+matType+
+
+constructibleType :=
+	+scalarType+
+	+vecType+
+	+matType+
+	+arrayType+
+
+%%% =========================================================================
+%%% Literal values (§3.5)
+%%% =========================================================================
+
+boolLit :=
+	true
+	false
+
+intLit :=
+	0
+	1
+	-1
+	0i
+	1i
+	-1i
+	0u
+	1u
+	42
+	255
+	256
+	65535
+	65536
+	2147483647
+	2147483647i
+	4294967295u
+	0x7FFFFFFFi
+	0xFFFFFFFFu
+	+common:number+
+
+floatLit :=
+	0.0
+	1.0
+	-1.0
+	0.5
+	-0.5
+	0.0f
+	1.0f
+	-1.0f
+	3.14159f
+	2.71828f
+	0.001f
+	1e10f
+	1e-10f
+	1e38f
+	-1e38f
+	1.17549435e-38f
+	3.40282347e+38f
+	1.401298464324817e-45f
+	0x1p0f
+	0x1p-149f
+	0x1.fffffep+127f
+	0x1p127f
+	0.0
+	1.0
+	-0.0
+	+common:number+
+
+f16Lit :=
+	0.0h
+	1.0h
+	-1.0h
+	0.5h
+	65504.0h
+	-65504.0h
+	5.96e-8h
+
+scalarLit :=
+	+boolLit+
+	+intLit+
+	+floatLit+
+
+%%% =========================================================================
+%%% Vector constructors (§17.1.2)
+%%% =========================================================================
+
+vec2Ctor :=
+	vec2f(+floatExpr+, +floatExpr+)
+	vec2f(+floatExpr+)
+	vec2f()
+	vec2<f32>(+floatExpr+, +floatExpr+)
+	vec2i(+intExpr+, +intExpr+)
+	vec2u(+intExpr+, +intExpr+)
+
+vec3Ctor :=
+	vec3f(+floatExpr+, +floatExpr+, +floatExpr+)
+	vec3f(+floatExpr+)
+	vec3f(+vec2Ctor+, +floatExpr+)
+	vec3f(+floatExpr+, +vec2Ctor+)
+	vec3f()
+
+vec4Ctor :=
+	vec4f(+floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+)
+	vec4f(+floatExpr+)
+	vec4f(+vec2Ctor+, +vec2Ctor+)
+	vec4f(+vec3Ctor+, +floatExpr+)
+	vec4f(+floatExpr+, +vec3Ctor+)
+	vec4f(+vec2Ctor+, +floatExpr+, +floatExpr+)
+	vec4f()
+
+vecCtor :=
+	+vec2Ctor+
+	+vec3Ctor+
+	+vec4Ctor+
+
+%%% =========================================================================
+%%% Matrix constructors (§17.1.3)
+%%% =========================================================================
+
+matCtor :=
+	mat2x2f(+floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+)
+	mat2x2f(+vec2Ctor+, +vec2Ctor+)
+	mat3x3f(+vec3Ctor+, +vec3Ctor+, +vec3Ctor+)
+	mat4x4f(+vec4Ctor+, +vec4Ctor+, +vec4Ctor+, +vec4Ctor+)
+	mat4x4f(+floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+)
+
+%%% =========================================================================
+%%% Expressions (§8)
+%%% =========================================================================
+
+floatExpr :=
+	+floatLit+
+	(+floatExpr+)
+	+floatExpr+ + +floatExpr+
+	+floatExpr+ - +floatExpr+
+	+floatExpr+ * +floatExpr+
+	+floatExpr+ / +floatExpr+
+	+floatExpr+ % +floatExpr+
+	-+floatExpr+
+	+floatBuiltin+
+	f32(+intExpr+)
+
+intExpr :=
+	+intLit+
+	(+intExpr+)
+	+intExpr+ + +intExpr+
+	+intExpr+ - +intExpr+
+	+intExpr+ * +intExpr+
+	+intExpr+ / +intExpr+
+	+intExpr+ % +intExpr+
+	+intExpr+ & +intExpr+
+	+intExpr+ | +intExpr+
+	+intExpr+ ^ +intExpr+
+	+intExpr+ << +shiftAmount+
+	+intExpr+ >> +shiftAmount+
+	~+intExpr+
+	-+intExpr+
+	+intBuiltin+
+	i32(+floatExpr+)
+	u32(+floatExpr+)
+	bitcast<i32>(+floatExpr+)
+	bitcast<u32>(+floatExpr+)
+
+shiftAmount :=
+	0u
+	1u
+	2u
+	4u
+	8u
+	16u
+	31u
+
+boolExpr :=
+	+boolLit+
+	+floatExpr+ < +floatExpr+
+	+floatExpr+ > +floatExpr+
+	+floatExpr+ <= +floatExpr+
+	+floatExpr+ >= +floatExpr+
+	+floatExpr+ == +floatExpr+
+	+floatExpr+ != +floatExpr+
+	+intExpr+ == +intExpr+
+	+intExpr+ != +intExpr+
+	!+boolExpr+
+	+boolExpr+ && +boolExpr+
+	+boolExpr+ || +boolExpr+
+
+anyExpr :=
+	+floatExpr+
+	+intExpr+
+	+boolExpr+
+	+vecCtor+
+
+%%% =========================================================================
+%%% Built-in numeric functions (§17.5)
+%%% =========================================================================
+
+floatBuiltin :=
+	abs(+floatExpr+)
+	acos(+floatExpr+)
+	acosh(+floatExpr+)
+	asin(+floatExpr+)
+	asinh(+floatExpr+)
+	atan(+floatExpr+)
+	atan2(+floatExpr+, +floatExpr+)
+	atanh(+floatExpr+)
+	ceil(+floatExpr+)
+	clamp(+floatExpr+, +floatExpr+, +floatExpr+)
+	cos(+floatExpr+)
+	cosh(+floatExpr+)
+	degrees(+floatExpr+)
+	exp(+floatExpr+)
+	exp2(+floatExpr+)
+	floor(+floatExpr+)
+	fma(+floatExpr+, +floatExpr+, +floatExpr+)
+	fract(+floatExpr+)
+	inverseSqrt(+floatExpr+)
+	ldexp(+floatExpr+, +intExpr+)
+	log(+floatExpr+)
+	log2(+floatExpr+)
+	max(+floatExpr+, +floatExpr+)
+	min(+floatExpr+, +floatExpr+)
+	mix(+floatExpr+, +floatExpr+, +floatExpr+)
+	pow(+floatExpr+, +floatExpr+)
+	radians(+floatExpr+)
+	round(+floatExpr+)
+	saturate(+floatExpr+)
+	sign(+floatExpr+)
+	sin(+floatExpr+)
+	sinh(+floatExpr+)
+	smoothstep(+floatExpr+, +floatExpr+, +floatExpr+)
+	sqrt(+floatExpr+)
+	step(+floatExpr+, +floatExpr+)
+	tan(+floatExpr+)
+	tanh(+floatExpr+)
+	trunc(+floatExpr+)
+	quantizeToF16(+floatExpr+)
+
+intBuiltin :=
+	abs(+intExpr+)
+	clamp(+intExpr+, +intExpr+, +intExpr+)
+	countLeadingZeros(+intExpr+)
+	countOneBits(+intExpr+)
+	countTrailingZeros(+intExpr+)
+	extractBits(+intExpr+, 0u, 16u)
+	firstLeadingBit(+intExpr+)
+	firstTrailingBit(+intExpr+)
+	insertBits(+intExpr+, +intExpr+, 0u, 16u)
+	max(+intExpr+, +intExpr+)
+	min(+intExpr+, +intExpr+)
+	reverseBits(+intExpr+)
+	sign(+intExpr+)
+
+%%% =========================================================================
+%%% Vector built-in functions (§17.5)
+%%% =========================================================================
+
+vecBuiltin :=
+	dot(+vec4Ctor+, +vec4Ctor+)
+	length(+vec3Ctor+)
+	normalize(+vec3Ctor+)
+	cross(+vec3Ctor+, +vec3Ctor+)
+	distance(+vec3Ctor+, +vec3Ctor+)
+	reflect(+vec3Ctor+, +vec3Ctor+)
+	faceForward(+vec3Ctor+, +vec3Ctor+, +vec3Ctor+)
+	refract(+vec3Ctor+, +vec3Ctor+, +floatExpr+)
+	determinant(+matCtor+)
+	transpose(+matCtor+)
+
+%%% =========================================================================
+%%% Logical built-ins (§17.3)
+%%% =========================================================================
+
+logicalBuiltin :=
+	all(vec4<bool>(+boolExpr+, +boolExpr+, +boolExpr+, +boolExpr+))
+	any(vec4<bool>(+boolExpr+, +boolExpr+, +boolExpr+, +boolExpr+))
+	select(+floatExpr+, +floatExpr+, +boolExpr+)
+
+%%% =========================================================================
+%%% Pack/Unpack built-ins (§17.9, §17.10)
+%%% =========================================================================
+
+packBuiltin :=
+	pack4x8snorm(+vec4Ctor+)
+	pack4x8unorm(+vec4Ctor+)
+	pack2x16snorm(+vec2Ctor+)
+	pack2x16unorm(+vec2Ctor+)
+	pack2x16float(+vec2Ctor+)
+	unpack4x8snorm(+intExpr+)
+	unpack4x8unorm(+intExpr+)
+	unpack2x16snorm(+intExpr+)
+	unpack2x16unorm(+intExpr+)
+	unpack2x16float(+intExpr+)
+
+%%% =========================================================================
+%%% Texture built-in functions (§17.12)
+%%% =========================================================================
+
+texCoord2d :=
+	vec2f(+floatExpr+, +floatExpr+)
+	vec2f(0.5, 0.5)
+	vec2f(0.0, 0.0)
+	vec2f(1.0, 1.0)
+
+texCoord3d :=
+	vec3f(+floatExpr+, +floatExpr+, +floatExpr+)
+	vec3f(0.5, 0.5, 0.5)
+
+texelCoord2d :=
+	vec2i(+intExpr+, +intExpr+)
+	vec2i(0, 0)
+	vec2u(0u, 0u)
+
+texOffset2d :=
+	vec2i(0, 0)
+	vec2i(1, 0)
+	vec2i(0, 1)
+	vec2i(-1, -1)
+	vec2i(%range%(-8-7), %range%(-8-7))
+
+textureBuiltin :=
+	textureSample(t_tex2d, t_samp, +texCoord2d+)
+	textureSample(t_tex2d, t_samp, +texCoord2d+, +texOffset2d+)
+	textureSampleLevel(t_tex2d, t_samp, +texCoord2d+, +floatExpr+)
+	textureSampleBias(t_tex2d, t_samp, +texCoord2d+, +floatExpr+)
+	textureSampleGrad(t_tex2d, t_samp, +texCoord2d+, +vec2Ctor+, +vec2Ctor+)
+	textureSampleCompare(t_depth, t_samp_c, +texCoord2d+, +floatExpr+)
+	textureSampleCompareLevel(t_depth, t_samp_c, +texCoord2d+, +floatExpr+)
+	textureLoad(t_tex2d, +texelCoord2d+, 0)
+	textureLoad(t_tex2d, +texelCoord2d+, +intExpr+)
+	textureStore(t_stex, +texelCoord2d+, +vec4Ctor+)
+	textureDimensions(t_tex2d)
+	textureDimensions(t_tex2d, 0)
+	textureNumLevels(t_tex2d)
+	textureNumSamples(t_ms)
+	textureGather(0, t_tex2d, t_samp, +texCoord2d+)
+	textureGatherCompare(t_depth, t_samp_c, +texCoord2d+, +floatExpr+)
+
+%%% =========================================================================
+%%% Atomic built-in functions (§17.11)
+%%% =========================================================================
+
+atomicBuiltin :=
+	atomicLoad(&wg_counter)
+	atomicStore(&wg_counter, +intExpr+)
+	atomicAdd(&wg_counter, 1u)
+	atomicSub(&wg_counter, 1u)
+	atomicMax(&wg_counter, +intExpr+)
+	atomicMin(&wg_counter, +intExpr+)
+	atomicAnd(&wg_counter, +intExpr+)
+	atomicOr(&wg_counter, +intExpr+)
+	atomicXor(&wg_counter, +intExpr+)
+	atomicExchange(&wg_counter, +intExpr+)
+	atomicCompareExchangeWeak(&wg_counter, +intExpr+, +intExpr+)
+
+%%% =========================================================================
+%%% Synchronization built-ins (§17.13)
+%%% =========================================================================
+
+barrierBuiltin :=
+	workgroupBarrier()
+	storageBarrier()
+	textureBarrier()
+
+%%% =========================================================================
+%%% Derivative built-ins (§17.7) — fragment only
+%%% =========================================================================
+
+derivativeBuiltin :=
+	dpdx(+floatExpr+)
+	dpdy(+floatExpr+)
+	fwidth(+floatExpr+)
+	dpdxCoarse(+floatExpr+)
+	dpdyCoarse(+floatExpr+)
+	fwidthCoarse(+floatExpr+)
+	dpdxFine(+floatExpr+)
+	dpdyFine(+floatExpr+)
+	fwidthFine(+floatExpr+)
+
+%%% =========================================================================
+%%% Swizzle expressions (§8.5.1)
+%%% =========================================================================
+
+swizzle :=
+	.x
+	.y
+	.z
+	.w
+	.r
+	.g
+	.b
+	.a
+	.xy
+	.xyz
+	.xyzw
+	.yx
+	.zyx
+	.wzyx
+	.rg
+	.rgb
+	.rgba
+	.xx
+	.xxxx
+
+%%% =========================================================================
+%%% Statements (§9)
+%%% =========================================================================
+
+varDecl :=
+	var v: f32 = +floatExpr+;
+	var v: i32 = +intExpr+;
+	var v: u32 = u32(+intExpr+);
+	var v: vec4f = +vec4Ctor+;
+	var v: bool = +boolExpr+;
+	let c: f32 = +floatExpr+;
+	let c: i32 = +intExpr+;
+	let c: vec4f = +vec4Ctor+;
+	let c: mat4x4f = +matCtor+;
+	var v: +constructibleType+;
+
+assignment :=
+	v = +floatExpr+;
+	v = +intExpr+;
+	v += +floatExpr+;
+	v -= +floatExpr+;
+	v *= +floatExpr+;
+	v /= +floatExpr+;
+	v++;
+	v--;
+
+ifStmt :=
+	if (+boolExpr+) { +varDecl+ }
+	if (+boolExpr+) { +varDecl+ } else { +varDecl+ }
+	if (+boolExpr+) { +assignment+ } else if (+boolExpr+) { +assignment+ } else { +assignment+ }
+
+forStmt :=
+	for (var i: i32 = 0; i < +intExpr+; i++) { +varDecl+ }
+	for (var i: u32 = 0u; i < u32(+intExpr+); i++) { _ = i; }
+
+whileStmt :=
+	while (+boolExpr+) { break; }
+
+loopStmt :=
+	loop { +varDecl+ break; }
+	loop { if (+boolExpr+) { break; } +assignment+ }
+	loop { +varDecl+ continuing { break if +boolExpr+; } }
+
+switchStmt :=
+	switch (+intExpr+) { case 0: { } case 1: { } default: { } }
+	switch (0i) { default: { +varDecl+ } }
+
+controlFlow :=
+	+ifStmt+
+	+forStmt+
+	+whileStmt+
+	+loopStmt+
+	+switchStmt+
+
+statement :=
+	+varDecl+
+	+assignment+
+	+controlFlow+
+	_ = +anyExpr+;
+	_ = +vecBuiltin+;
+	_ = +logicalBuiltin+;
+	_ = +packBuiltin+;
+
+%%% =========================================================================
+%%% Module-scope const / override declarations (§7.1, §7.2)
+%%% =========================================================================
+
+constDecl :=
+	const PI: f32 = 3.14159;
+	const TWO: u32 = 2u;
+	const ZERO: i32 = 0;
+	const MAX_SIZE: u32 = 256u;
+	const EPSILON: f32 = 0.00001;
+
+overrideDecl :=
+	@id(0) override block_size: u32 = 64u;
+	@id(1) override scale: f32 = 1.0;
+	override has_effect: bool = true;
+	@id(%range%(0-255)) override cfg_val: f32 = +floatLit+;
+	@id(%range%(0-255)) override cfg_int: u32 = +intLit+;
+
+constAssert :=
+	const_assert 1 == 1;
+	const_assert true;
+	const_assert PI > 0.0;
+
+%%% =========================================================================
+%%% Struct definitions (§6.2.10)
+%%% =========================================================================
+
+structMember :=
+	m_f: f32
+	m_i: i32
+	m_u: u32
+	m_v2: vec2f
+	m_v3: vec3f
+	m_v4: vec4f
+	m_m4: mat4x4f
+	m_arr: array<f32, +smallArraySize+>
+	@size(16) m_padded: f32
+	@align(16) m_aligned: vec4f
+
+structDef :=
+	struct FuzzStruct { +structMember+, +structMember+, }
+	struct TinyStruct { m: f32, }
+	struct BigStruct { a: vec4f, b: mat4x4f, c: array<vec4f, +smallArraySize+>, d: f32, }
+
+%%% Inter-stage structs
+
+vertexOutputStruct :=
+	struct VertexOut { @builtin(position) pos: vec4f, @location(0) color: vec4f, }
+	struct VertexOut { @builtin(position) pos: vec4f, @location(0) uv: vec2f, @location(1) normal: vec3f, }
+	struct VertexOut { @builtin(position) pos: vec4f, @location(0) @interpolate(flat) id: u32, }
+	struct VertexOut { @builtin(position) pos: vec4f, @location(0) @interpolate(linear) val: vec4f, }
+	struct VertexOut { @builtin(position) pos: vec4f, @location(0) @interpolate(perspective, centroid) uv: vec2f, }
+
+%%% =========================================================================
+%%% Resource bindings (§7.3, §13.3.2)
+%%% =========================================================================
+
+uniformBinding :=
+	@group(0) @binding(0) var<uniform> u_data: vec4f;
+	@group(0) @binding(0) var<uniform> u_data: FuzzStruct;
+
+storageBinding :=
+	@group(0) @binding(1) var<storage, read_write> s_data: array<f32>;
+	@group(0) @binding(1) var<storage, read> s_data: array<vec4f>;
+	@group(0) @binding(1) var<storage, read_write> s_data: array<u32>;
+
+textureBinding :=
+	@group(0) @binding(2) var t_tex2d: texture_2d<f32>;\n@group(0) @binding(3) var t_samp: sampler;
+	@group(0) @binding(2) var t_tex2d: texture_2d<f32>;\n@group(0) @binding(3) var t_samp: sampler;\n@group(0) @binding(4) var t_depth: texture_depth_2d;\n@group(0) @binding(5) var t_samp_c: sampler_comparison;
+
+storageTextureBinding :=
+	@group(0) @binding(6) var t_stex: +storageTextureType+;
+
+multisampledBinding :=
+	@group(0) @binding(7) var t_ms: texture_multisampled_2d<f32>;
+
+%%% =========================================================================
+%%% Workgroup variables (§14.3)
+%%% =========================================================================
+
+workgroupVar :=
+	var<workgroup> wg_data: array<f32, +smallArraySize+>;
+	var<workgroup> wg_counter: atomic<u32>;
+
+%%% =========================================================================
+%%% Entry point built-in I/O (§13.3.1.1)
+%%% =========================================================================
+
+vertexInput :=
+	@builtin(vertex_index) vi: u32
+	@builtin(instance_index) ii: u32
+	@location(0) pos: vec4f
+
+vertexOutput :=
+	@builtin(position) vec4f
+
+fragmentInput :=
+	@builtin(position) pos: vec4f
+	@builtin(front_facing) ff: bool
+	@builtin(sample_index) si: u32
+	@builtin(sample_mask) sm: u32
+	@location(0) uv: vec2f
+
+fragmentOutput :=
+	@location(0) vec4f
+
+computeInput :=
+	@builtin(global_invocation_id) gid: vec3u
+	@builtin(local_invocation_id) lid: vec3u
+	@builtin(local_invocation_index) lindex: u32
+	@builtin(workgroup_id) wid: vec3u
+	@builtin(num_workgroups) nwg: vec3u
+
+%%% =========================================================================
+%%% Workgroup sizes (§12.14)
+%%% =========================================================================
+
+workgroupSize :=
+	@workgroup_size(1)
+	@workgroup_size(64)
+	@workgroup_size(256)
+	@workgroup_size(8, 8)
+	@workgroup_size(16, 16)
+	@workgroup_size(4, 4, 4)
+	@workgroup_size(1, 1, 1)
+	@workgroup_size(%range%(1-256))
+	@workgroup_size(%range%(1-16), %range%(1-16))
+	@workgroup_size(%range%(1-8), %range%(1-8), %range%(1-8))
+
+%%% =========================================================================
+%%% Function bodies
+%%% =========================================================================
+
+vertexBody :=
+	+statement+\n+statement+\n+statement+\nreturn vec4f(+floatExpr+, +floatExpr+, +floatExpr+, 1.0);
+
+fragmentBody :=
+	+statement+\n+statement+\nreturn vec4f(+floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+);
+
+fragmentBodyDiscard :=
+	+statement+\nif (+boolExpr+) { discard; }\nreturn vec4f(+floatExpr+, +floatExpr+, +floatExpr+, +floatExpr+);
+
+computeBody :=
+	+statement+\n+statement+\n+statement+\n+statement+
+
+computeBodyAtomic :=
+	+statement+\n_ = +atomicBuiltin+;\n+barrierBuiltin+;\n+statement+
+
+computeBodyBarrier :=
+	+statement+\n+barrierBuiltin+;\n+statement+\n+barrierBuiltin+;\n+statement+
+
+%%% =========================================================================
+%%% Helper functions (§11)
+%%% =========================================================================
+
+helperFn :=
+	fn helper_f(x: f32, y: f32) -> f32 { return +floatBuiltin+; }
+	fn helper_v(a: vec4f, b: vec4f) -> vec4f { return a + b * +floatExpr+; }
+	fn helper_i(a: i32) -> i32 { return +intBuiltin+; }
+	fn helper_b(x: f32) -> bool { return +boolExpr+; }
+
+%%% =========================================================================
+%%% Complete shader modules — referenceable from webgpu.dg
+%%% =========================================================================
+
+vertexShader :=
+	+helperFn+\n@vertex\nfn vs_main(+vertexInput+) -> +vertexOutput+ {\n+vertexBody+\n}
+
+fragmentShader :=
+	+helperFn+\n@fragment\nfn fs_main(+fragmentInput+) -> +fragmentOutput+ {\n+fragmentBody+\n}
+	+helperFn+\n@fragment\nfn fs_main(+fragmentInput+) -> +fragmentOutput+ {\n+fragmentBodyDiscard+\n}
+
+computeShader :=
+	+workgroupVar+\n+helperFn+\n@compute +workgroupSize+\nfn cs_main(+computeInput+) {\n+computeBody+\n}
+	+workgroupVar+\n+helperFn+\n@compute +workgroupSize+\nfn cs_main(+computeInput+) {\n+computeBodyAtomic+\n}
+	+workgroupVar+\n+helperFn+\n@compute +workgroupSize+\nfn cs_main(+computeInput+) {\n+computeBodyBarrier+\n}
+
+vertexFragmentShader :=
+	+vertexShader+\n+fragmentShader+
+
+%%% Fragment with texture sampling
+
+fragmentShaderTextured :=
+	+textureBinding+\n@fragment\nfn fs_main(+fragmentInput+) -> +fragmentOutput+ {\nreturn +textureBuiltin+;\n}
+
+%%% Fragment with derivatives
+
+fragmentShaderDerivative :=
+	+diagnosticDirective+\n@fragment\nfn fs_main(@builtin(position) pos: vec4f) -> @location(0) vec4f {\nlet dx = +derivativeBuiltin+;\nlet dy = +derivativeBuiltin+;\nreturn vec4f(dx, dy, 0.0, 1.0);\n}
+
+%%% Compute with storage
+
+computeShaderStorage :=
+	+storageBinding+\n+workgroupVar+\n@compute +workgroupSize+\nfn cs_main(+computeInput+) {\n+computeBodyAtomic+\n}
+
+%%% Module with directives + override
+
+moduleWithOverride :=
+	+overrideDecl+\n+constDecl+\n+constAssert+\n+computeShader+
+
+moduleWithEnable :=
+	+enableDirective+\n+constDecl+\n+computeShader+
+
+%%% Structed vertex-to-fragment pipeline
+
+structuredPipeline :=
+	+vertexOutputStruct+\n+helperFn+\n@vertex\nfn vs_main(+vertexInput+) -> VertexOut {\nvar out: VertexOut;\nout.pos = vec4f(+floatExpr+, +floatExpr+, +floatExpr+, 1.0);\nout.color = +vec4Ctor+;\nreturn out;\n}\n@fragment\nfn fs_main(in: VertexOut) -> @location(0) vec4f {\nreturn in.color;\n}
+
+%%% =========================================================================
+%%% WebGPU-compatible rule names (§ merging)
+%%% =========================================================================
+%%% When loaded alongside webgpu.dg, these alternatives merge into
+%%% webgpu.dg's identically-named rules via dharma's rule-merging.
+%%% This causes createShaderModule() to sometimes receive random WGSL.
+
+vertexShaderCode :=
+	+vertexShader+
+
+fragmentShaderCode :=
+	+fragmentShader+
+
+computeShaderCode :=
+	+computeShader+
+	+computeShaderStorage+
+
+vertexFragmentCode :=
+	+vertexFragmentShader+
+	+structuredPipeline+
+
+fullShaderCode :=
+	+vertexFragmentShader+
+	+computeShader+
+	+computeShaderStorage+
+	+moduleWithOverride+
+	+moduleWithEnable+
+	+structuredPipeline+
+
+%%% =========================================================================
+%%% Output Section — standalone shader compiler fuzzing
+%%% =========================================================================
+%%% Each alternative is a self-contained JS expression that creates a
+%%% shader module. This works in both standalone mode and combined mode:
+%%%   - Standalone: wrapped in default OUTPUT_TEMPLATE ("%s")
+%%%   - Combined:   wrapped in webgpu’s OUTPUT_TEMPLATE ("try { %s } catch(e) {}")
+%%% Either way the result is valid JS in a <script type="module"> context.
+
+%section% := output
+
+main :=
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+vertexShader+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+fragmentShader+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+computeShader+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+vertexFragmentShader+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+computeShaderStorage+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+moduleWithOverride+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+moduleWithEnable+`}); }
+	{ const __a = await navigator.gpu.requestAdapter(); const __d = await __a.requestDevice(); __d.createShaderModule({code: `+structuredPipeline+`}); }

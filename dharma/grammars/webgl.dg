@@ -1,0 +1,1070 @@
+%%% WebGL / WebGL2 API Grammar
+%%% https://registry.khronos.org/webgl/specs/latest/1.0/
+%%% https://registry.khronos.org/webgl/specs/latest/2.0/
+%%%
+%%% Covers: Context creation, buffer ops, texture ops, framebuffer/renderbuffer,
+%%% shader compilation, program linking, uniforms/attributes, drawing,
+%%% state management, WebGL2 additions (VAOs, UBOs, transform feedback,
+%%% sync objects, sampler objects, draw buffers, instanced drawing)
+
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 25
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+%const% MAX_REPEAT_POWER := 3
+
+%%% =========================================================================
+%%% Value Section
+%%% =========================================================================
+
+%section% := value
+
+%%% --- Basic numeric helpers ---
+
+float01 :=
+	0.0
+	0.25
+	0.5
+	0.75
+	1.0
+
+texSize :=
+	1
+	2
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+	512
+	1024
+
+bufSize :=
+	4
+	8
+	16
+	32
+	64
+	128
+	256
+	512
+	1024
+	4096
+	0
+	%range%(1-2048)
+
+offset :=
+	0
+	4
+	8
+	16
+	32
+	64
+	%range%(0-512)
+
+stride :=
+	0
+	4
+	8
+	12
+	16
+	20
+	24
+	32
+
+drawCount :=
+	0
+	1
+	3
+	4
+	6
+	12
+	36
+	%range%(0-1024)
+
+instanceCount :=
+	1
+	2
+	4
+	8
+	%range%(1-64)
+
+mipLevel :=
+	0
+	1
+	2
+	3
+	%range%(0-10)
+
+packAlignment :=
+	1
+	2
+	4
+	8
+
+%%% --- GL context options ---
+
+contextOptions :=
+	{}
+	{antialias: +common:bool+}
+	{preserveDrawingBuffer: +common:bool+}
+	{premultipliedAlpha: +common:bool+}
+	{antialias: +common:bool+, preserveDrawingBuffer: +common:bool+}
+	{alpha: +common:bool+, depth: +common:bool+, stencil: +common:bool+, antialias: +common:bool+, premultipliedAlpha: +common:bool+, preserveDrawingBuffer: +common:bool+, failIfMajorPerformanceCaveat: +common:bool+}
+	{powerPreference: "default"}
+	{powerPreference: "high-performance"}
+	{powerPreference: "low-power"}
+
+%%% --- Buffer targets ---
+
+bufferTarget :=
+	!gl!.ARRAY_BUFFER
+	!gl!.ELEMENT_ARRAY_BUFFER
+
+bufferTargetAll :=
+	!gl!.ARRAY_BUFFER
+	!gl!.ELEMENT_ARRAY_BUFFER
+	!gl!.COPY_READ_BUFFER
+	!gl!.COPY_WRITE_BUFFER
+	!gl!.TRANSFORM_FEEDBACK_BUFFER
+	!gl!.UNIFORM_BUFFER
+	!gl!.PIXEL_PACK_BUFFER
+	!gl!.PIXEL_UNPACK_BUFFER
+
+%%% --- Buffer usage hints ---
+
+bufferUsageHint :=
+	!gl!.STATIC_DRAW
+	!gl!.DYNAMIC_DRAW
+	!gl!.STREAM_DRAW
+	!gl!.STATIC_READ
+	!gl!.DYNAMIC_READ
+	!gl!.STREAM_READ
+	!gl!.STATIC_COPY
+	!gl!.DYNAMIC_COPY
+	!gl!.STREAM_COPY
+
+%%% --- Data types ---
+
+dataType :=
+	!gl!.BYTE
+	!gl!.UNSIGNED_BYTE
+	!gl!.SHORT
+	!gl!.UNSIGNED_SHORT
+	!gl!.INT
+	!gl!.UNSIGNED_INT
+	!gl!.FLOAT
+	!gl!.HALF_FLOAT
+
+indexType :=
+	!gl!.UNSIGNED_BYTE
+	!gl!.UNSIGNED_SHORT
+	!gl!.UNSIGNED_INT
+
+%%% --- Draw modes ---
+
+drawMode :=
+	!gl!.POINTS
+	!gl!.LINE_STRIP
+	!gl!.LINE_LOOP
+	!gl!.LINES
+	!gl!.TRIANGLE_STRIP
+	!gl!.TRIANGLE_FAN
+	!gl!.TRIANGLES
+
+%%% --- Texture targets ---
+
+textureTarget :=
+	!gl!.TEXTURE_2D
+	!gl!.TEXTURE_CUBE_MAP
+
+textureTargetAll :=
+	!gl!.TEXTURE_2D
+	!gl!.TEXTURE_CUBE_MAP
+	!gl!.TEXTURE_3D
+	!gl!.TEXTURE_2D_ARRAY
+
+texImageTarget :=
+	!gl!.TEXTURE_2D
+	!gl!.TEXTURE_CUBE_MAP_POSITIVE_X
+	!gl!.TEXTURE_CUBE_MAP_NEGATIVE_X
+	!gl!.TEXTURE_CUBE_MAP_POSITIVE_Y
+	!gl!.TEXTURE_CUBE_MAP_NEGATIVE_Y
+	!gl!.TEXTURE_CUBE_MAP_POSITIVE_Z
+	!gl!.TEXTURE_CUBE_MAP_NEGATIVE_Z
+
+%%% --- Texture parameters ---
+
+texParameter :=
+	!gl!.TEXTURE_MIN_FILTER
+	!gl!.TEXTURE_MAG_FILTER
+	!gl!.TEXTURE_WRAP_S
+	!gl!.TEXTURE_WRAP_T
+
+texParameterAll :=
+	!gl!.TEXTURE_MIN_FILTER
+	!gl!.TEXTURE_MAG_FILTER
+	!gl!.TEXTURE_WRAP_S
+	!gl!.TEXTURE_WRAP_T
+	!gl!.TEXTURE_WRAP_R
+	!gl!.TEXTURE_MAX_LEVEL
+	!gl!.TEXTURE_COMPARE_FUNC
+	!gl!.TEXTURE_COMPARE_MODE
+	!gl!.TEXTURE_BASE_LEVEL
+
+texFilterValue :=
+	!gl!.NEAREST
+	!gl!.LINEAR
+	!gl!.NEAREST_MIPMAP_NEAREST
+	!gl!.LINEAR_MIPMAP_NEAREST
+	!gl!.NEAREST_MIPMAP_LINEAR
+	!gl!.LINEAR_MIPMAP_LINEAR
+
+texMagFilterValue :=
+	!gl!.NEAREST
+	!gl!.LINEAR
+
+texWrapValue :=
+	!gl!.REPEAT
+	!gl!.CLAMP_TO_EDGE
+	!gl!.MIRRORED_REPEAT
+
+texParameterValue :=
+	+texFilterValue+
+	+texWrapValue+
+
+%%% --- Pixel formats (WebGL1) ---
+
+pixelFormat :=
+	!gl!.RGBA
+	!gl!.RGB
+	!gl!.LUMINANCE
+	!gl!.ALPHA
+	!gl!.LUMINANCE_ALPHA
+
+%%% --- Internal formats (WebGL1) ---
+
+internalFormat :=
+	!gl!.RGBA
+	!gl!.RGB
+	!gl!.LUMINANCE
+	!gl!.ALPHA
+	!gl!.LUMINANCE_ALPHA
+
+%%% --- Pixel types ---
+
+pixelType :=
+	!gl!.UNSIGNED_BYTE
+	!gl!.UNSIGNED_SHORT_5_6_5
+	!gl!.UNSIGNED_SHORT_4_4_4_4
+	!gl!.UNSIGNED_SHORT_5_5_5_1
+	!gl!.FLOAT
+	!gl!.HALF_FLOAT
+	!gl!.UNSIGNED_INT
+
+%%% --- WebGL2 internal formats ---
+
+gl2InternalFormat :=
+	!gl!.R8
+	!gl!.RG8
+	!gl!.RGB8
+	!gl!.RGBA8
+	!gl!.R16F
+	!gl!.RG16F
+	!gl!.RGB16F
+	!gl!.RGBA16F
+	!gl!.R32F
+	!gl!.RG32F
+	!gl!.RGB32F
+	!gl!.RGBA32F
+	!gl!.R8I
+	!gl!.RG8I
+	!gl!.RGB8I
+	!gl!.RGBA8I
+	!gl!.R16I
+	!gl!.RG16I
+	!gl!.RGB16I
+	!gl!.RGBA16I
+	!gl!.R32I
+	!gl!.RG32I
+	!gl!.RGB32I
+	!gl!.RGBA32I
+	!gl!.R8UI
+	!gl!.RG8UI
+	!gl!.RGB8UI
+	!gl!.RGBA8UI
+	!gl!.R16UI
+	!gl!.RG16UI
+	!gl!.RGB16UI
+	!gl!.RGBA16UI
+	!gl!.R32UI
+	!gl!.RG32UI
+	!gl!.RGB32UI
+	!gl!.RGBA32UI
+	!gl!.SRGB8
+	!gl!.SRGB8_ALPHA8
+	!gl!.RGB10_A2
+	!gl!.RGB10_A2UI
+	!gl!.R11F_G11F_B10F
+	!gl!.RGB9_E5
+	!gl!.DEPTH_COMPONENT16
+	!gl!.DEPTH_COMPONENT24
+	!gl!.DEPTH_COMPONENT32F
+	!gl!.DEPTH24_STENCIL8
+	!gl!.DEPTH32F_STENCIL8
+
+%%% --- WebGL2 pixel formats ---
+
+gl2PixelFormat :=
+	!gl!.RED
+	!gl!.RG
+	!gl!.RGB
+	!gl!.RGBA
+	!gl!.RED_INTEGER
+	!gl!.RG_INTEGER
+	!gl!.RGB_INTEGER
+	!gl!.RGBA_INTEGER
+	!gl!.DEPTH_COMPONENT
+	!gl!.DEPTH_STENCIL
+
+%%% --- Framebuffer targets ---
+
+framebufferTarget :=
+	!gl!.FRAMEBUFFER
+	!gl!.READ_FRAMEBUFFER
+	!gl!.DRAW_FRAMEBUFFER
+
+%%% --- Framebuffer attachments ---
+
+fbAttachment :=
+	!gl!.COLOR_ATTACHMENT0
+	!gl!.DEPTH_ATTACHMENT
+	!gl!.STENCIL_ATTACHMENT
+	!gl!.DEPTH_STENCIL_ATTACHMENT
+
+fbColorAttachment :=
+	!gl!.COLOR_ATTACHMENT0
+	!gl!.COLOR_ATTACHMENT0 + %range%(0-15)
+
+%%% --- Renderbuffer formats ---
+
+renderbufferFormat :=
+	!gl!.RGBA4
+	!gl!.RGB5_A1
+	!gl!.RGB565
+	!gl!.DEPTH_COMPONENT16
+	!gl!.STENCIL_INDEX8
+	!gl!.DEPTH_STENCIL
+
+gl2RenderbufferFormat :=
+	!gl!.R8
+	!gl!.RG8
+	!gl!.RGBA8
+	!gl!.R16F
+	!gl!.RG16F
+	!gl!.RGBA16F
+	!gl!.R32F
+	!gl!.RG32F
+	!gl!.RGBA32F
+	!gl!.DEPTH_COMPONENT16
+	!gl!.DEPTH_COMPONENT24
+	!gl!.DEPTH_COMPONENT32F
+	!gl!.DEPTH24_STENCIL8
+	!gl!.DEPTH32F_STENCIL8
+	!gl!.STENCIL_INDEX8
+	!gl!.SRGB8_ALPHA8
+	!gl!.RGB10_A2
+
+%%% --- GL capabilities (enable/disable) ---
+
+glCapability :=
+	!gl!.BLEND
+	!gl!.CULL_FACE
+	!gl!.DEPTH_TEST
+	!gl!.DITHER
+	!gl!.POLYGON_OFFSET_FILL
+	!gl!.SAMPLE_ALPHA_TO_COVERAGE
+	!gl!.SAMPLE_COVERAGE
+	!gl!.SCISSOR_TEST
+	!gl!.STENCIL_TEST
+	!gl!.RASTERIZER_DISCARD
+
+%%% --- Blend functions ---
+
+blendFunc :=
+	!gl!.ZERO
+	!gl!.ONE
+	!gl!.SRC_COLOR
+	!gl!.ONE_MINUS_SRC_COLOR
+	!gl!.DST_COLOR
+	!gl!.ONE_MINUS_DST_COLOR
+	!gl!.SRC_ALPHA
+	!gl!.ONE_MINUS_SRC_ALPHA
+	!gl!.DST_ALPHA
+	!gl!.ONE_MINUS_DST_ALPHA
+	!gl!.CONSTANT_COLOR
+	!gl!.ONE_MINUS_CONSTANT_COLOR
+	!gl!.CONSTANT_ALPHA
+	!gl!.ONE_MINUS_CONSTANT_ALPHA
+	!gl!.SRC_ALPHA_SATURATE
+
+%%% --- Blend equations ---
+
+blendEquation :=
+	!gl!.FUNC_ADD
+	!gl!.FUNC_SUBTRACT
+	!gl!.FUNC_REVERSE_SUBTRACT
+	!gl!.MIN
+	!gl!.MAX
+
+%%% --- Depth / stencil functions ---
+
+depthFunc :=
+	!gl!.NEVER
+	!gl!.LESS
+	!gl!.EQUAL
+	!gl!.LEQUAL
+	!gl!.GREATER
+	!gl!.NOTEQUAL
+	!gl!.GEQUAL
+	!gl!.ALWAYS
+
+%%% --- Stencil operations ---
+
+stencilOp :=
+	!gl!.KEEP
+	!gl!.ZERO
+	!gl!.REPLACE
+	!gl!.INCR
+	!gl!.DECR
+	!gl!.INVERT
+	!gl!.INCR_WRAP
+	!gl!.DECR_WRAP
+
+%%% --- Face / winding ---
+
+faceMode :=
+	!gl!.FRONT
+	!gl!.BACK
+	!gl!.FRONT_AND_BACK
+
+glFrontFace :=
+	!gl!.CW
+	!gl!.CCW
+
+%%% --- Transform feedback primitives (WebGL2) ---
+
+tfPrimitive :=
+	!gl!.POINTS
+	!gl!.LINES
+	!gl!.TRIANGLES
+
+%%% --- Read buffer targets ---
+
+readBuffer :=
+	!gl!.BACK
+	!gl!.NONE
+	!gl!.COLOR_ATTACHMENT0
+	!gl!.COLOR_ATTACHMENT0 + %range%(0-7)
+
+%%% --- Typed arrays ---
+
+typedArray :=
+	new Float32Array([%repeat%(%range%(0-9).%range%(0-9), ", ")])
+	new Float32Array(+bufSize+)
+	new Float32Array([0.0, 0.5, -0.5, 0.5, -0.5, -0.5, 0.5, -0.5])
+	new Uint8Array(+bufSize+)
+	new Uint8Array([%repeat%(%range%(0-255), ", ")])
+	new Uint16Array(+bufSize+)
+	new Uint16Array([0, 1, 2, 0, 2, 3])
+	new Uint32Array(+bufSize+)
+	new Int8Array(+bufSize+)
+	new Int16Array(+bufSize+)
+	new Int32Array(+bufSize+)
+	new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1])
+
+%%% --- GLSL shader source code ---
+
+glslVertexShaderSource :=
+	"attribute vec4 aPosition; void main() { gl_Position = aPosition; }"
+	"attribute vec4 aPosition; attribute vec4 aColor; varying vec4 vColor; void main() { gl_Position = aPosition; vColor = aColor; }"
+	"attribute vec2 aPosition; void main() { gl_Position = vec4(aPosition, 0.0, 1.0); gl_PointSize = 1.0; }"
+	"attribute vec3 aPosition; uniform mat4 uMVP; void main() { gl_Position = uMVP * vec4(aPosition, 1.0); }"
+	"attribute vec4 aPosition; attribute vec2 aTexCoord; varying vec2 vTexCoord; void main() { gl_Position = aPosition; vTexCoord = aTexCoord; }"
+	"attribute vec4 aPosition; uniform float uScale; void main() { gl_Position = aPosition * vec4(uScale, uScale, uScale, 1.0); }"
+	"#version 300 es\nin vec4 aPosition; void main() { gl_Position = aPosition; }"
+	"#version 300 es\nin vec4 aPosition; in vec4 aColor; out vec4 vColor; void main() { gl_Position = aPosition; vColor = aColor; }"
+	"#version 300 es\nin vec3 aPosition; uniform mat4 uMVP; void main() { gl_Position = uMVP * vec4(aPosition, 1.0); }"
+
+glslFragmentShaderSource :=
+	"precision mediump float; void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }"
+	"precision mediump float; varying vec4 vColor; void main() { gl_FragColor = vColor; }"
+	"precision mediump float; void main() { gl_FragColor = vec4(+float01+, +float01+, +float01+, 1.0); }"
+	"precision highp float; uniform sampler2D uTexture; varying vec2 vTexCoord; void main() { gl_FragColor = texture2D(uTexture, vTexCoord); }"
+	"precision mediump float; uniform vec4 uColor; void main() { gl_FragColor = uColor; }"
+	"precision lowp float; void main() { gl_FragColor = vec4(gl_FragCoord.xy / vec2(256.0), 0.5, 1.0); }"
+	"#version 300 es\nprecision mediump float; out vec4 fragColor; void main() { fragColor = vec4(1.0, 0.0, 0.0, 1.0); }"
+	"#version 300 es\nprecision mediump float; in vec4 vColor; out vec4 fragColor; void main() { fragColor = vColor; }"
+	"#version 300 es\nprecision highp float; uniform sampler2D uTexture; in vec2 vTexCoord; out vec4 fragColor; void main() { fragColor = texture(uTexture, vTexCoord); }"
+
+%%% =========================================================================
+%%% Operations — organized by category
+%%% =========================================================================
+
+%%% --- Buffer operations ---
+
+bufferOps :=
+	!gl!.bindBuffer(+bufferTarget+, !glBuffer!)
+	!gl!.bindBuffer(+bufferTargetAll+, !glBuffer!)
+	!gl!.bindBuffer(+bufferTarget+, null)
+	!gl!.bufferData(+bufferTarget+, +bufSize+, +bufferUsageHint+)
+	!gl!.bufferData(+bufferTarget+, +typedArray+, +bufferUsageHint+)
+	!gl!.bufferData(+bufferTargetAll+, +typedArray+, +bufferUsageHint+)
+	!gl!.bufferSubData(+bufferTarget+, +offset+, +typedArray+)
+	!gl!.bufferSubData(+bufferTarget+, 0, +typedArray+)
+	!gl!.deleteBuffer(!glBuffer!)
+	!gl!.isBuffer(!glBuffer!)
+	!gl!.getBufferParameter(+bufferTarget+, !gl!.BUFFER_SIZE)
+	!gl!.getBufferParameter(+bufferTarget+, !gl!.BUFFER_USAGE)
+
+%%% --- Texture operations ---
+
+textureOps :=
+	!gl!.bindTexture(+textureTarget+, !glTexture!)
+	!gl!.bindTexture(+textureTargetAll+, !glTexture!)
+	!gl!.bindTexture(+textureTarget+, null)
+	!gl!.activeTexture(!gl!.TEXTURE0)
+	!gl!.activeTexture(!gl!.TEXTURE0 + %range%(0-15))
+	!gl!.texImage2D(!gl!.TEXTURE_2D, +mipLevel+, +internalFormat+, +texSize+, +texSize+, 0, +pixelFormat+, +pixelType+, null)
+	!gl!.texImage2D(!gl!.TEXTURE_2D, +mipLevel+, +internalFormat+, +texSize+, +texSize+, 0, +pixelFormat+, !gl!.UNSIGNED_BYTE, +typedArray+)
+	!gl!.texImage2D(+texImageTarget+, +mipLevel+, +internalFormat+, +texSize+, +texSize+, 0, +pixelFormat+, +pixelType+, null)
+	!gl!.texSubImage2D(!gl!.TEXTURE_2D, +mipLevel+, 0, 0, +texSize+, +texSize+, +pixelFormat+, !gl!.UNSIGNED_BYTE, +typedArray+)
+	!gl!.texParameteri(+textureTarget+, +texParameter+, +texParameterValue+)
+	!gl!.texParameteri(+textureTarget+, !gl!.TEXTURE_MIN_FILTER, +texFilterValue+)
+	!gl!.texParameteri(+textureTarget+, !gl!.TEXTURE_MAG_FILTER, +texMagFilterValue+)
+	!gl!.texParameteri(+textureTarget+, !gl!.TEXTURE_WRAP_S, +texWrapValue+)
+	!gl!.texParameteri(+textureTarget+, !gl!.TEXTURE_WRAP_T, +texWrapValue+)
+	!gl!.generateMipmap(+textureTarget+)
+	!gl!.deleteTexture(!glTexture!)
+	!gl!.isTexture(!glTexture!)
+	!gl!.copyTexImage2D(!gl!.TEXTURE_2D, +mipLevel+, +internalFormat+, 0, 0, +texSize+, +texSize+, 0)
+	!gl!.copyTexSubImage2D(!gl!.TEXTURE_2D, +mipLevel+, 0, 0, 0, 0, +texSize+, +texSize+)
+	!gl!.pixelStorei(!gl!.UNPACK_FLIP_Y_WEBGL, +common:bool+)
+	!gl!.pixelStorei(!gl!.UNPACK_PREMULTIPLY_ALPHA_WEBGL, +common:bool+)
+	!gl!.pixelStorei(!gl!.PACK_ALIGNMENT, +packAlignment+)
+	!gl!.pixelStorei(!gl!.UNPACK_ALIGNMENT, +packAlignment+)
+	!gl!.getTexParameter(+textureTarget+, +texParameter+)
+	!gl!.compressedTexImage2D(!gl!.TEXTURE_2D, +mipLevel+, 0x83F0, +texSize+, +texSize+, 0, +typedArray+)
+
+%%% --- Framebuffer operations ---
+
+framebufferOps :=
+	!gl!.bindFramebuffer(!gl!.FRAMEBUFFER, !glFramebuffer!)
+	!gl!.bindFramebuffer(+framebufferTarget+, !glFramebuffer!)
+	!gl!.bindFramebuffer(!gl!.FRAMEBUFFER, null)
+	!gl!.bindFramebuffer(+framebufferTarget+, null)
+	!gl!.framebufferTexture2D(!gl!.FRAMEBUFFER, +fbAttachment+, !gl!.TEXTURE_2D, !glTexture!, +mipLevel+)
+	!gl!.framebufferTexture2D(+framebufferTarget+, +fbAttachment+, !gl!.TEXTURE_2D, !glTexture!, 0)
+	!gl!.framebufferTexture2D(!gl!.FRAMEBUFFER, !gl!.COLOR_ATTACHMENT0, !gl!.TEXTURE_2D, !glTexture!, 0)
+	!gl!.framebufferRenderbuffer(!gl!.FRAMEBUFFER, +fbAttachment+, !gl!.RENDERBUFFER, !glRenderbuffer!)
+	!gl!.framebufferRenderbuffer(+framebufferTarget+, +fbAttachment+, !gl!.RENDERBUFFER, !glRenderbuffer!)
+	!gl!.checkFramebufferStatus(!gl!.FRAMEBUFFER)
+	!gl!.checkFramebufferStatus(+framebufferTarget+)
+	!gl!.deleteFramebuffer(!glFramebuffer!)
+	!gl!.isFramebuffer(!glFramebuffer!)
+	!gl!.readPixels(0, 0, +texSize+, +texSize+, !gl!.RGBA, !gl!.UNSIGNED_BYTE, new Uint8Array(+texSize+ * +texSize+ * 4))
+
+%%% --- Renderbuffer operations ---
+
+renderbufferOps :=
+	!gl!.bindRenderbuffer(!gl!.RENDERBUFFER, !glRenderbuffer!)
+	!gl!.bindRenderbuffer(!gl!.RENDERBUFFER, null)
+	!gl!.renderbufferStorage(!gl!.RENDERBUFFER, +renderbufferFormat+, +texSize+, +texSize+)
+	!gl!.renderbufferStorage(!gl!.RENDERBUFFER, +gl2RenderbufferFormat+, +texSize+, +texSize+)
+	!gl!.deleteRenderbuffer(!glRenderbuffer!)
+	!gl!.isRenderbuffer(!glRenderbuffer!)
+	!gl!.getRenderbufferParameter(!gl!.RENDERBUFFER, !gl!.RENDERBUFFER_WIDTH)
+	!gl!.getRenderbufferParameter(!gl!.RENDERBUFFER, !gl!.RENDERBUFFER_HEIGHT)
+	!gl!.getRenderbufferParameter(!gl!.RENDERBUFFER, !gl!.RENDERBUFFER_INTERNAL_FORMAT)
+
+%%% --- Shader operations ---
+
+shaderOps :=
+	!gl!.shaderSource(!vertexShader!, +glslVertexShaderSource+)
+	!gl!.shaderSource(!fragmentShader!, +glslFragmentShaderSource+)
+	!gl!.compileShader(!vertexShader!)
+	!gl!.compileShader(!fragmentShader!)
+	!gl!.getShaderParameter(!vertexShader!, !gl!.COMPILE_STATUS)
+	!gl!.getShaderParameter(!fragmentShader!, !gl!.COMPILE_STATUS)
+	!gl!.getShaderInfoLog(!vertexShader!)
+	!gl!.getShaderInfoLog(!fragmentShader!)
+	!gl!.getShaderSource(!vertexShader!)
+	!gl!.getShaderSource(!fragmentShader!)
+	!gl!.deleteShader(!vertexShader!)
+	!gl!.deleteShader(!fragmentShader!)
+	!gl!.isShader(!vertexShader!)
+	!gl!.isShader(!fragmentShader!)
+
+%%% --- Program operations ---
+
+programOps :=
+	!gl!.attachShader(!glProgram!, !vertexShader!)
+	!gl!.attachShader(!glProgram!, !fragmentShader!)
+	!gl!.detachShader(!glProgram!, !vertexShader!)
+	!gl!.detachShader(!glProgram!, !fragmentShader!)
+	!gl!.bindAttribLocation(!glProgram!, %range%(0-7), "aPosition")
+	!gl!.bindAttribLocation(!glProgram!, %range%(0-7), "aColor")
+	!gl!.bindAttribLocation(!glProgram!, %range%(0-7), "aTexCoord")
+	!gl!.linkProgram(!glProgram!)
+	!gl!.useProgram(!glProgram!)
+	!gl!.useProgram(null)
+	!gl!.validateProgram(!glProgram!)
+	!gl!.getProgramParameter(!glProgram!, !gl!.LINK_STATUS)
+	!gl!.getProgramParameter(!glProgram!, !gl!.ACTIVE_UNIFORMS)
+	!gl!.getProgramParameter(!glProgram!, !gl!.ACTIVE_ATTRIBUTES)
+	!gl!.getProgramParameter(!glProgram!, !gl!.ATTACHED_SHADERS)
+	!gl!.getProgramParameter(!glProgram!, !gl!.DELETE_STATUS)
+	!gl!.getProgramInfoLog(!glProgram!)
+	!gl!.deleteProgram(!glProgram!)
+	!gl!.isProgram(!glProgram!)
+	!gl!.getAttachedShaders(!glProgram!)
+	!gl!.getActiveAttrib(!glProgram!, 0)
+	!gl!.getActiveAttrib(!glProgram!, %range%(0-7))
+	!gl!.getActiveUniform(!glProgram!, 0)
+	!gl!.getActiveUniform(!glProgram!, %range%(0-7))
+
+%%% --- Uniform operations ---
+
+uniformOps :=
+	!gl!.uniform1f(!uniformLoc!, +common:number+)
+	!gl!.uniform2f(!uniformLoc!, +common:number+, +common:number+)
+	!gl!.uniform3f(!uniformLoc!, +common:number+, +common:number+, +common:number+)
+	!gl!.uniform4f(!uniformLoc!, +common:number+, +common:number+, +common:number+, +common:number+)
+	!gl!.uniform1i(!uniformLoc!, %range%(0-15))
+	!gl!.uniform2i(!uniformLoc!, %range%(0-15), %range%(0-15))
+	!gl!.uniform3i(!uniformLoc!, %range%(0-15), %range%(0-15), %range%(0-15))
+	!gl!.uniform4i(!uniformLoc!, %range%(0-15), %range%(0-15), %range%(0-15), %range%(0-15))
+	!gl!.uniform1fv(!uniformLoc!, new Float32Array([+common:number+]))
+	!gl!.uniform2fv(!uniformLoc!, new Float32Array([+common:number+, +common:number+]))
+	!gl!.uniform3fv(!uniformLoc!, new Float32Array([+common:number+, +common:number+, +common:number+]))
+	!gl!.uniform4fv(!uniformLoc!, new Float32Array([+common:number+, +common:number+, +common:number+, +common:number+]))
+	!gl!.uniform1iv(!uniformLoc!, new Int32Array([%range%(0-15)]))
+	!gl!.uniform2iv(!uniformLoc!, new Int32Array([%range%(0-15), %range%(0-15)]))
+	!gl!.uniformMatrix2fv(!uniformLoc!, false, new Float32Array([1,0, 0,1]))
+	!gl!.uniformMatrix3fv(!uniformLoc!, false, new Float32Array([1,0,0, 0,1,0, 0,0,1]))
+	!gl!.uniformMatrix4fv(!uniformLoc!, false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]))
+	!gl!.uniformMatrix4fv(!uniformLoc!, false, +typedArray+)
+
+%%% --- Attribute operations ---
+
+attributeOps :=
+	!gl!.getAttribLocation(!glProgram!, "aPosition")
+	!gl!.getAttribLocation(!glProgram!, "aColor")
+	!gl!.getAttribLocation(!glProgram!, "aTexCoord")
+	!gl!.vertexAttribPointer(%range%(0-7), %range%(1-4), !gl!.FLOAT, false, +stride+, +offset+)
+	!gl!.vertexAttribPointer(%range%(0-7), %range%(1-4), +dataType+, +common:bool+, +stride+, +offset+)
+	!gl!.enableVertexAttribArray(%range%(0-7))
+	!gl!.disableVertexAttribArray(%range%(0-7))
+	!gl!.vertexAttrib1f(%range%(0-7), +common:number+)
+	!gl!.vertexAttrib2f(%range%(0-7), +common:number+, +common:number+)
+	!gl!.vertexAttrib3f(%range%(0-7), +common:number+, +common:number+, +common:number+)
+	!gl!.vertexAttrib4f(%range%(0-7), +common:number+, +common:number+, +common:number+, +common:number+)
+	!gl!.vertexAttrib1fv(%range%(0-7), new Float32Array([+common:number+]))
+	!gl!.vertexAttrib4fv(%range%(0-7), new Float32Array([+common:number+, +common:number+, +common:number+, +common:number+]))
+	!gl!.getVertexAttrib(%range%(0-7), !gl!.VERTEX_ATTRIB_ARRAY_ENABLED)
+	!gl!.getVertexAttrib(%range%(0-7), !gl!.VERTEX_ATTRIB_ARRAY_SIZE)
+	!gl!.getVertexAttrib(%range%(0-7), !gl!.VERTEX_ATTRIB_ARRAY_TYPE)
+	!gl!.getVertexAttribOffset(%range%(0-7), !gl!.VERTEX_ATTRIB_ARRAY_POINTER)
+
+%%% --- Drawing operations ---
+
+drawingOps :=
+	!gl!.drawArrays(+drawMode+, 0, +drawCount+)
+	!gl!.drawArrays(+drawMode+, +offset+, +drawCount+)
+	!gl!.drawArrays(!gl!.TRIANGLES, 0, 3)
+	!gl!.drawArrays(!gl!.TRIANGLE_STRIP, 0, 4)
+	!gl!.drawArrays(!gl!.POINTS, 0, +drawCount+)
+	!gl!.drawElements(+drawMode+, +drawCount+, +indexType+, +offset+)
+	!gl!.drawElements(!gl!.TRIANGLES, 6, !gl!.UNSIGNED_SHORT, 0)
+	!gl!.drawElements(+drawMode+, +drawCount+, !gl!.UNSIGNED_SHORT, 0)
+	!gl!.finish()
+	!gl!.flush()
+
+%%% --- State operations ---
+
+stateOps :=
+	!gl!.enable(+glCapability+)
+	!gl!.disable(+glCapability+)
+	!gl!.blendFunc(+blendFunc+, +blendFunc+)
+	!gl!.blendFuncSeparate(+blendFunc+, +blendFunc+, +blendFunc+, +blendFunc+)
+	!gl!.blendEquation(+blendEquation+)
+	!gl!.blendEquationSeparate(+blendEquation+, +blendEquation+)
+	!gl!.blendColor(+float01+, +float01+, +float01+, +float01+)
+	!gl!.depthFunc(+depthFunc+)
+	!gl!.depthMask(+common:bool+)
+	!gl!.depthRange(+float01+, +float01+)
+	!gl!.stencilFunc(+depthFunc+, %range%(0-255), %range%(0-255))
+	!gl!.stencilFuncSeparate(+faceMode+, +depthFunc+, %range%(0-255), %range%(0-255))
+	!gl!.stencilOp(+stencilOp+, +stencilOp+, +stencilOp+)
+	!gl!.stencilOpSeparate(+faceMode+, +stencilOp+, +stencilOp+, +stencilOp+)
+	!gl!.stencilMask(%range%(0-255))
+	!gl!.stencilMaskSeparate(+faceMode+, %range%(0-255))
+	!gl!.viewport(0, 0, +texSize+, +texSize+)
+	!gl!.viewport(%range%(0-1024), %range%(0-1024), +texSize+, +texSize+)
+	!gl!.scissor(0, 0, +texSize+, +texSize+)
+	!gl!.scissor(%range%(0-1024), %range%(0-1024), +texSize+, +texSize+)
+	!gl!.clearColor(+float01+, +float01+, +float01+, +float01+)
+	!gl!.clearDepth(+float01+)
+	!gl!.clearStencil(%range%(0-255))
+	!gl!.clear(!gl!.COLOR_BUFFER_BIT)
+	!gl!.clear(!gl!.DEPTH_BUFFER_BIT)
+	!gl!.clear(!gl!.STENCIL_BUFFER_BIT)
+	!gl!.clear(!gl!.COLOR_BUFFER_BIT | !gl!.DEPTH_BUFFER_BIT)
+	!gl!.clear(!gl!.COLOR_BUFFER_BIT | !gl!.DEPTH_BUFFER_BIT | !gl!.STENCIL_BUFFER_BIT)
+	!gl!.colorMask(+common:bool+, +common:bool+, +common:bool+, +common:bool+)
+	!gl!.cullFace(+faceMode+)
+	!gl!.frontFace(+glFrontFace+)
+	!gl!.lineWidth(+common:number+)
+	!gl!.polygonOffset(+common:number+, +common:number+)
+	!gl!.sampleCoverage(+float01+, +common:bool+)
+	!gl!.hint(!gl!.GENERATE_MIPMAP_HINT, !gl!.FASTEST)
+	!gl!.hint(!gl!.GENERATE_MIPMAP_HINT, !gl!.NICEST)
+	!gl!.hint(!gl!.GENERATE_MIPMAP_HINT, !gl!.DONT_CARE)
+
+%%% --- Parameter queries ---
+
+parameterOps :=
+	!gl!.getError()
+	!gl!.getParameter(!gl!.MAX_TEXTURE_SIZE)
+	!gl!.getParameter(!gl!.MAX_RENDERBUFFER_SIZE)
+	!gl!.getParameter(!gl!.MAX_VERTEX_ATTRIBS)
+	!gl!.getParameter(!gl!.MAX_COMBINED_TEXTURE_IMAGE_UNITS)
+	!gl!.getParameter(!gl!.MAX_TEXTURE_IMAGE_UNITS)
+	!gl!.getParameter(!gl!.MAX_VERTEX_TEXTURE_IMAGE_UNITS)
+	!gl!.getParameter(!gl!.MAX_VERTEX_UNIFORM_VECTORS)
+	!gl!.getParameter(!gl!.MAX_FRAGMENT_UNIFORM_VECTORS)
+	!gl!.getParameter(!gl!.MAX_VARYING_VECTORS)
+	!gl!.getParameter(!gl!.VIEWPORT)
+	!gl!.getParameter(!gl!.SCISSOR_BOX)
+	!gl!.getParameter(!gl!.DEPTH_RANGE)
+	!gl!.getParameter(!gl!.BLEND)
+	!gl!.getParameter(!gl!.DEPTH_TEST)
+	!gl!.getParameter(!gl!.STENCIL_TEST)
+	!gl!.getParameter(!gl!.COLOR_WRITEMASK)
+	!gl!.getParameter(!gl!.CURRENT_PROGRAM)
+	!gl!.getParameter(!gl!.ACTIVE_TEXTURE)
+	!gl!.getParameter(!gl!.VERSION)
+	!gl!.getParameter(!gl!.RENDERER)
+	!gl!.getParameter(!gl!.VENDOR)
+	!gl!.getParameter(!gl!.SHADING_LANGUAGE_VERSION)
+	!gl!.getSupportedExtensions()
+	!gl!.getExtension("WEBGL_debug_renderer_info")
+	!gl!.getExtension("OES_texture_float")
+	!gl!.getExtension("OES_texture_half_float")
+	!gl!.getExtension("ANGLE_instanced_arrays")
+	!gl!.getExtension("OES_vertex_array_object")
+	!gl!.getExtension("WEBGL_draw_buffers")
+	!gl!.getExtension("OES_element_index_uint")
+	!gl!.getExtension("EXT_texture_filter_anisotropic")
+	!gl!.getExtension("WEBGL_compressed_texture_s3tc")
+	!gl!.getExtension("WEBGL_depth_texture")
+	!gl!.getExtension("OES_standard_derivatives")
+	!gl!.getExtension("EXT_frag_depth")
+	!gl!.getExtension("EXT_blend_minmax")
+	!gl!.getExtension("WEBGL_lose_context")
+	!gl!.isEnabled(+glCapability+)
+
+%%% =========================================================================
+%%% WebGL2-specific operations
+%%% =========================================================================
+
+%%% --- VAO operations ---
+
+vaoOps :=
+	!gl!.bindVertexArray(!vao!)
+	!gl!.bindVertexArray(null)
+	!gl!.deleteVertexArray(!vao!)
+	!gl!.isVertexArray(!vao!)
+
+%%% --- Instanced drawing ---
+
+instancedDrawOps :=
+	!gl!.drawArraysInstanced(+drawMode+, 0, +drawCount+, +instanceCount+)
+	!gl!.drawArraysInstanced(!gl!.TRIANGLES, 0, 3, +instanceCount+)
+	!gl!.drawElementsInstanced(+drawMode+, +drawCount+, +indexType+, +offset+, +instanceCount+)
+	!gl!.drawElementsInstanced(!gl!.TRIANGLES, 6, !gl!.UNSIGNED_SHORT, 0, +instanceCount+)
+	!gl!.vertexAttribDivisor(%range%(0-7), %range%(0-4))
+	!gl!.drawRangeElements(+drawMode+, 0, +drawCount+, +drawCount+, +indexType+, +offset+)
+
+%%% --- UBO operations ---
+
+uboOps :=
+	!gl!.bindBufferBase(!gl!.UNIFORM_BUFFER, %range%(0-7), !glBuffer!)
+	!gl!.bindBufferBase(!gl!.UNIFORM_BUFFER, %range%(0-7), null)
+	!gl!.bindBufferRange(!gl!.UNIFORM_BUFFER, %range%(0-7), !glBuffer!, +offset+, +bufSize+)
+	!gl!.getUniformBlockIndex(!glProgram!, "UBO")
+	!gl!.getUniformBlockIndex(!glProgram!, "Uniforms")
+	!gl!.uniformBlockBinding(!glProgram!, 0, %range%(0-7))
+	!gl!.uniformBlockBinding(!glProgram!, %range%(0-3), %range%(0-7))
+	!gl!.getActiveUniformBlockParameter(!glProgram!, 0, !gl!.UNIFORM_BLOCK_BINDING)
+	!gl!.getActiveUniformBlockParameter(!glProgram!, 0, !gl!.UNIFORM_BLOCK_DATA_SIZE)
+	!gl!.getActiveUniformBlockName(!glProgram!, 0)
+
+%%% --- Sampler object operations ---
+
+samplerObjOps :=
+	!gl!.bindSampler(%range%(0-7), !samplerObj!)
+	!gl!.bindSampler(%range%(0-7), null)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_MIN_FILTER, +texFilterValue+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_MAG_FILTER, +texMagFilterValue+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_WRAP_S, +texWrapValue+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_WRAP_T, +texWrapValue+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_WRAP_R, +texWrapValue+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_COMPARE_FUNC, +depthFunc+)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_COMPARE_MODE, !gl!.COMPARE_REF_TO_TEXTURE)
+	!gl!.samplerParameteri(!samplerObj!, !gl!.TEXTURE_COMPARE_MODE, !gl!.NONE)
+	!gl!.samplerParameterf(!samplerObj!, !gl!.TEXTURE_MIN_LOD, +common:number+)
+	!gl!.samplerParameterf(!samplerObj!, !gl!.TEXTURE_MAX_LOD, +common:number+)
+	!gl!.getSamplerParameter(!samplerObj!, !gl!.TEXTURE_MIN_FILTER)
+	!gl!.deleteSampler(!samplerObj!)
+	!gl!.isSampler(!samplerObj!)
+
+%%% --- Transform feedback operations ---
+
+transformFeedbackOps :=
+	!gl!.bindTransformFeedback(!gl!.TRANSFORM_FEEDBACK, !transformFeedback!)
+	!gl!.bindTransformFeedback(!gl!.TRANSFORM_FEEDBACK, null)
+	!gl!.beginTransformFeedback(+tfPrimitive+)
+	!gl!.endTransformFeedback()
+	!gl!.pauseTransformFeedback()
+	!gl!.resumeTransformFeedback()
+	!gl!.transformFeedbackVaryings(!glProgram!, ["gl_Position"], !gl!.INTERLEAVED_ATTRIBS)
+	!gl!.transformFeedbackVaryings(!glProgram!, ["gl_Position"], !gl!.SEPARATE_ATTRIBS)
+	!gl!.transformFeedbackVaryings(!glProgram!, ["vColor"], !gl!.INTERLEAVED_ATTRIBS)
+	!gl!.getTransformFeedbackVarying(!glProgram!, 0)
+	!gl!.deleteTransformFeedback(!transformFeedback!)
+	!gl!.isTransformFeedback(!transformFeedback!)
+
+%%% --- Sync object operations ---
+
+syncOps :=
+	!gl!.deleteSync(!sync!)
+	!gl!.isSync(!sync!)
+	!gl!.clientWaitSync(!sync!, 0, 0)
+	!gl!.clientWaitSync(!sync!, !gl!.SYNC_FLUSH_COMMANDS_BIT, 1000000)
+	!gl!.waitSync(!sync!, 0, !gl!.TIMEOUT_IGNORED)
+	!gl!.getSyncParameter(!sync!, !gl!.SYNC_STATUS)
+	!gl!.getSyncParameter(!sync!, !gl!.SYNC_CONDITION)
+	!gl!.getSyncParameter(!sync!, !gl!.SYNC_FLAGS)
+
+%%% --- Query object operations ---
+
+queryOps :=
+	!gl!.beginQuery(!gl!.ANY_SAMPLES_PASSED, !glQuery!)
+	!gl!.beginQuery(!gl!.ANY_SAMPLES_PASSED_CONSERVATIVE, !glQuery!)
+	!gl!.endQuery(!gl!.ANY_SAMPLES_PASSED)
+	!gl!.endQuery(!gl!.ANY_SAMPLES_PASSED_CONSERVATIVE)
+	!gl!.getQuery(!gl!.ANY_SAMPLES_PASSED, !gl!.CURRENT_QUERY)
+	!gl!.getQueryParameter(!glQuery!, !gl!.QUERY_RESULT)
+	!gl!.getQueryParameter(!glQuery!, !gl!.QUERY_RESULT_AVAILABLE)
+	!gl!.deleteQuery(!glQuery!)
+	!gl!.isQuery(!glQuery!)
+
+%%% --- Draw buffer operations ---
+
+drawBufferOps :=
+	!gl!.readBuffer(+readBuffer+)
+	!gl!.drawBuffers([!gl!.BACK])
+	!gl!.drawBuffers([!gl!.COLOR_ATTACHMENT0])
+	!gl!.drawBuffers([!gl!.COLOR_ATTACHMENT0, !gl!.COLOR_ATTACHMENT1])
+	!gl!.drawBuffers([!gl!.COLOR_ATTACHMENT0, !gl!.COLOR_ATTACHMENT1, !gl!.COLOR_ATTACHMENT2])
+	!gl!.drawBuffers([!gl!.COLOR_ATTACHMENT0, !gl!.NONE, !gl!.COLOR_ATTACHMENT2])
+	!gl!.drawBuffers([!gl!.NONE])
+
+%%% --- Clear buffer operations (WebGL2) ---
+
+clearBufferOps :=
+	!gl!.clearBufferfv(!gl!.COLOR, 0, new Float32Array([+float01+, +float01+, +float01+, +float01+]))
+	!gl!.clearBufferfv(!gl!.COLOR, %range%(0-7), new Float32Array([+float01+, +float01+, +float01+, +float01+]))
+	!gl!.clearBufferiv(!gl!.COLOR, 0, new Int32Array([0, 0, 0, 0]))
+	!gl!.clearBufferuiv(!gl!.COLOR, 0, new Uint32Array([0, 0, 0, 0]))
+	!gl!.clearBufferfi(!gl!.DEPTH_STENCIL, 0, 1.0, 0)
+	!gl!.clearBufferfv(!gl!.DEPTH, 0, new Float32Array([1.0]))
+	!gl!.clearBufferiv(!gl!.STENCIL, 0, new Int32Array([0]))
+
+%%% --- WebGL2 texture operations ---
+
+gl2TextureOps :=
+	!gl!.texImage3D(!gl!.TEXTURE_3D, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+, +texSize+, 0, +gl2PixelFormat+, +pixelType+, null)
+	!gl!.texImage3D(!gl!.TEXTURE_2D_ARRAY, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+, %range%(1-8), 0, +gl2PixelFormat+, +pixelType+, null)
+	!gl!.texSubImage3D(!gl!.TEXTURE_3D, +mipLevel+, 0, 0, 0, +texSize+, +texSize+, +texSize+, +gl2PixelFormat+, +pixelType+, +typedArray+)
+	!gl!.copyTexSubImage3D(!gl!.TEXTURE_3D, +mipLevel+, 0, 0, 0, 0, 0, +texSize+, +texSize+)
+	!gl!.texStorage2D(!gl!.TEXTURE_2D, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+)
+	!gl!.texStorage2D(!gl!.TEXTURE_CUBE_MAP, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+)
+	!gl!.texStorage3D(!gl!.TEXTURE_3D, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+, +texSize+)
+	!gl!.texStorage3D(!gl!.TEXTURE_2D_ARRAY, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+, %range%(1-8))
+	!gl!.compressedTexImage3D(!gl!.TEXTURE_3D, +mipLevel+, +gl2InternalFormat+, +texSize+, +texSize+, +texSize+, 0, +typedArray+)
+
+%%% --- WebGL2 framebuffer operations ---
+
+gl2FramebufferOps :=
+	!gl!.blitFramebuffer(0, 0, +texSize+, +texSize+, 0, 0, +texSize+, +texSize+, !gl!.COLOR_BUFFER_BIT, !gl!.NEAREST)
+	!gl!.blitFramebuffer(0, 0, +texSize+, +texSize+, 0, 0, +texSize+, +texSize+, !gl!.COLOR_BUFFER_BIT, !gl!.LINEAR)
+	!gl!.blitFramebuffer(0, 0, +texSize+, +texSize+, 0, 0, +texSize+, +texSize+, !gl!.DEPTH_BUFFER_BIT, !gl!.NEAREST)
+	!gl!.blitFramebuffer(0, 0, +texSize+, +texSize+, 0, 0, +texSize+, +texSize+, !gl!.STENCIL_BUFFER_BIT, !gl!.NEAREST)
+	!gl!.blitFramebuffer(0, 0, +texSize+, +texSize+, 0, 0, +texSize+, +texSize+, !gl!.COLOR_BUFFER_BIT | !gl!.DEPTH_BUFFER_BIT, !gl!.NEAREST)
+	!gl!.framebufferTextureLayer(+framebufferTarget+, +fbAttachment+, !glTexture!, +mipLevel+, %range%(0-7))
+	!gl!.framebufferTextureLayer(!gl!.FRAMEBUFFER, !gl!.COLOR_ATTACHMENT0, !glTexture!, 0, 0)
+	!gl!.invalidateFramebuffer(+framebufferTarget+, [+fbAttachment+])
+	!gl!.invalidateFramebuffer(!gl!.FRAMEBUFFER, [!gl!.COLOR_ATTACHMENT0, !gl!.DEPTH_ATTACHMENT])
+	!gl!.invalidateSubFramebuffer(+framebufferTarget+, [+fbAttachment+], 0, 0, +texSize+, +texSize+)
+	!gl!.renderbufferStorageMultisample(!gl!.RENDERBUFFER, %range%(1-8), +gl2RenderbufferFormat+, +texSize+, +texSize+)
+
+%%% --- WebGL2 buffer operations ---
+
+gl2BufferOps :=
+	!gl!.getBufferSubData(+bufferTarget+, +offset+, +typedArray+)
+	!gl!.getBufferSubData(+bufferTargetAll+, +offset+, +typedArray+)
+	!gl!.copyBufferSubData(+bufferTargetAll+, +bufferTargetAll+, +offset+, +offset+, +bufSize+)
+	!gl!.copyBufferSubData(!gl!.COPY_READ_BUFFER, !gl!.COPY_WRITE_BUFFER, +offset+, +offset+, +bufSize+)
+	!gl!.bindBufferBase(!gl!.TRANSFORM_FEEDBACK_BUFFER, 0, !glBuffer!)
+	!gl!.bindBufferRange(!gl!.TRANSFORM_FEEDBACK_BUFFER, 0, !glBuffer!, +offset+, +bufSize+)
+
+%%% --- WebGL2 uniform operations ---
+
+gl2UniformOps :=
+	!gl!.uniform1ui(!uniformLoc!, %range%(0-255))
+	!gl!.uniform2ui(!uniformLoc!, %range%(0-255), %range%(0-255))
+	!gl!.uniform3ui(!uniformLoc!, %range%(0-255), %range%(0-255), %range%(0-255))
+	!gl!.uniform4ui(!uniformLoc!, %range%(0-255), %range%(0-255), %range%(0-255), %range%(0-255))
+	!gl!.uniform1uiv(!uniformLoc!, new Uint32Array([%range%(0-255)]))
+	!gl!.uniformMatrix2x3fv(!uniformLoc!, false, new Float32Array(6))
+	!gl!.uniformMatrix3x2fv(!uniformLoc!, false, new Float32Array(6))
+	!gl!.uniformMatrix2x4fv(!uniformLoc!, false, new Float32Array(8))
+	!gl!.uniformMatrix4x2fv(!uniformLoc!, false, new Float32Array(8))
+	!gl!.uniformMatrix3x4fv(!uniformLoc!, false, new Float32Array(12))
+	!gl!.uniformMatrix4x3fv(!uniformLoc!, false, new Float32Array(12))
+
+%%% --- WebGL2 attribute operations ---
+
+gl2AttributeOps :=
+	!gl!.vertexAttribI4i(%range%(0-7), %range%(-128-127), %range%(-128-127), %range%(-128-127), %range%(-128-127))
+	!gl!.vertexAttribI4ui(%range%(0-7), %range%(0-255), %range%(0-255), %range%(0-255), %range%(0-255))
+	!gl!.vertexAttribI4iv(%range%(0-7), new Int32Array([0, 0, 0, 0]))
+	!gl!.vertexAttribI4uiv(%range%(0-7), new Uint32Array([0, 0, 0, 0]))
+	!gl!.vertexAttribIPointer(%range%(0-7), %range%(1-4), !gl!.INT, +stride+, +offset+)
+	!gl!.vertexAttribIPointer(%range%(0-7), %range%(1-4), !gl!.UNSIGNED_INT, +stride+, +offset+)
+
+%%% --- Canvas / context operations ---
+
+contextOps :=
+	!gl!.canvas.width = +texSize+
+	!gl!.canvas.height = +texSize+
+	!gl!.drawingBufferWidth
+	!gl!.drawingBufferHeight
+	!gl!.drawingBufferColorSpace
+	!gl!.getContextAttributes()
+	!gl!.isContextLost()
+
+%%% --- Lose context extension ---
+
+loseContextOps :=
+	e = !gl!.getExtension("WEBGL_lose_context"); if (e) e.loseContext()
+	e = !gl!.getExtension("WEBGL_lose_context"); if (e) e.restoreContext()
+
+%%% --- All statements ---
+
+webglStmt :=
+	+bufferOps+
+	+textureOps+
+	+framebufferOps+
+	+renderbufferOps+
+	+shaderOps+
+	+programOps+
+	+uniformOps+
+	+attributeOps+
+	+drawingOps+
+	+stateOps+
+	+parameterOps+
+	+vaoOps+
+	+instancedDrawOps+
+	+uboOps+
+	+samplerObjOps+
+	+transformFeedbackOps+
+	+syncOps+
+	+queryOps+
+	+drawBufferOps+
+	+clearBufferOps+
+	+gl2TextureOps+
+	+gl2FramebufferOps+
+	+gl2BufferOps+
+	+gl2UniformOps+
+	+gl2AttributeOps+
+	+contextOps+
+	+loseContextOps+
+
+%%% =========================================================================
+%%% Variable Section
+%%% =========================================================================
+
+%section% := variable
+
+gl :=
+	c = document.createElement("canvas"); c.width = +texSize+; c.height = +texSize+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("webgl");
+	c = document.createElement("canvas"); c.width = +texSize+; c.height = +texSize+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("webgl2");
+	c = document.createElement("canvas"); c.width = +texSize+; c.height = +texSize+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("webgl", +contextOptions+);
+	c = document.createElement("canvas"); c.width = +texSize+; c.height = +texSize+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("webgl2", +contextOptions+);
+
+glBuffer :=
+	@ = !gl!.createBuffer();
+
+glTexture :=
+	@ = !gl!.createTexture();
+
+glFramebuffer :=
+	@ = !gl!.createFramebuffer();
+
+glRenderbuffer :=
+	@ = !gl!.createRenderbuffer();
+
+vertexShader :=
+	x = !gl!.createShader(!gl!.VERTEX_SHADER); !gl!.shaderSource(x, +glslVertexShaderSource+); !gl!.compileShader(x); @ = x;
+
+fragmentShader :=
+	x = !gl!.createShader(!gl!.FRAGMENT_SHADER); !gl!.shaderSource(x, +glslFragmentShaderSource+); !gl!.compileShader(x); @ = x;
+
+glProgram :=
+	x = !gl!.createProgram(); !gl!.attachShader(x, !vertexShader!); !gl!.attachShader(x, !fragmentShader!); !gl!.linkProgram(x); !gl!.useProgram(x); @ = x;
+	x = !gl!.createProgram(); !gl!.attachShader(x, !vertexShader!); !gl!.attachShader(x, !fragmentShader!); !gl!.bindAttribLocation(x, 0, "aPosition"); !gl!.linkProgram(x); !gl!.useProgram(x); @ = x;
+	@ = !gl!.createProgram();
+
+uniformLoc :=
+	@ = !gl!.getUniformLocation(!glProgram!, "uMVP");
+	@ = !gl!.getUniformLocation(!glProgram!, "uColor");
+	@ = !gl!.getUniformLocation(!glProgram!, "uTexture");
+	@ = !gl!.getUniformLocation(!glProgram!, "uScale");
+
+vao :=
+	@ = !gl!.createVertexArray();
+
+samplerObj :=
+	@ = !gl!.createSampler();
+
+transformFeedback :=
+	@ = !gl!.createTransformFeedback();
+
+sync :=
+	@ = !gl!.fenceSync(!gl!.SYNC_GPU_COMMANDS_COMPLETE, 0);
+
+glQuery :=
+	@ = !gl!.createQuery();
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+webglStmt+

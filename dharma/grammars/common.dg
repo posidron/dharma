@@ -1,22 +1,123 @@
-%%% Common Things
+%%% Common Things - Modern Fuzzing Standard Library
 
 %section% := value
+
+%%% === Boolean Values ===
 
 bool :=
 	true
 	false
+	0
+	1
+	"true"
+	"false"
+	""
+	null
+	undefined
+
+%%% === Digit and Hex ===
 
 digit :=
 	%range%(0-9)
 
+hex :=
+	%range%(0-9)
+	%range%(a-f)
+	%range%(A-F)
+
+%%% === Integer Types with Boundary Values ===
+
 byte_int :=
 	%range%(0-255)
+
+uint8_boundary :=
+	0
+	1
+	127
+	128
+	255
+	256
+
+int8_boundary :=
+	-129
+	-128
+	-127
+	-1
+	0
+	1
+	126
+	127
+	128
 
 short_int :=
 	%range%(0-65535)
 
+uint16_boundary :=
+	0
+	1
+	255
+	256
+	32767
+	32768
+	65534
+	65535
+	65536
+
+int16_boundary :=
+	-32769
+	-32768
+	-32767
+	-1
+	0
+	1
+	32766
+	32767
+	32768
+
 int :=
 	%range%(0-4294967295)
+
+uint32_boundary :=
+	0
+	1
+	65535
+	65536
+	2147483647
+	2147483648
+	4294967294
+	4294967295
+	4294967296
+
+int32_boundary :=
+	-2147483649
+	-2147483648
+	-2147483647
+	-1
+	0
+	1
+	2147483646
+	2147483647
+	2147483648
+
+int64_boundary :=
+	-9223372036854775809
+	-9223372036854775808
+	-9223372036854775807
+	-1
+	0
+	1
+	9223372036854775806
+	9223372036854775807
+	9223372036854775808
+
+uint64_boundary :=
+	0
+	1
+	9223372036854775807
+	9223372036854775808
+	18446744073709551614
+	18446744073709551615
+	18446744073709551616
 
 sign :=
 	+
@@ -51,12 +152,105 @@ digits :=
 	%repeat%(+digit+)
 	+digit+
 
+%%% === IEEE 754 Special Values ===
+
+ieee754_special :=
+	NaN
+	Infinity
+	-Infinity
+	-0
+	0
+	Number.MAX_SAFE_INTEGER
+	Number.MIN_SAFE_INTEGER
+	Number.EPSILON
+	Number.MAX_VALUE
+	Number.MIN_VALUE
+	Number.POSITIVE_INFINITY
+	Number.NEGATIVE_INFINITY
+	5e-324
+	1.7976931348623157e+308
+	2.2250738585072014e-308
+	2.2250738585072009e-308
+	1e308
+	1e-308
+	1e309
+	0.1 + 0.2
+	9007199254740991
+	-9007199254740991
+	9007199254740992
+	9007199254740993
+	2147483647
+	-2147483648
+	4294967295
+	4294967296
+	1.0000000000000002
+	0.9999999999999999
+
+subnormal_float :=
+	5e-324
+	1e-323
+	1.5e-323
+	2e-323
+	2.2250738585072009e-308
+	2.2250738585072014e-308
+	1.1125369292536007e-308
+	4.9406564584124654e-324
+
+typed_array_boundary :=
+	127
+	128
+	-128
+	-129
+	255
+	256
+	32767
+	32768
+	-32768
+	-32769
+	65535
+	65536
+	2147483647
+	2147483648
+	-2147483648
+	-2147483649
+	4294967295
+	4294967296
+	3.4028234663852886e+38
+	-3.4028234663852886e+38
+	1.1754943508222875e-38
+	1.401298464324817e-45
+
+%%% === Decimal and Scientific Numbers ===
+
 decimal_number :=
 	+integer+.+digits+
+	0.0
+	0.5
+	1.0
+	-0.0
+	-1.0
+	3.141592653589793
+	2.718281828459045
+	1.4142135623730951
+	0.30000000000000004
+	1.7976931348623157e+308
 
 scientific_number :=
 	+decimal_number+e+integer+
 	+decimal_number+E+integer+
+	1e0
+	1e-1
+	1e+1
+	1e10
+	1e-10
+	1e100
+	1e-100
+	1e308
+	1e-324
+	1e309
+	5e-324
+
+%%% === Unit and Length ===
 
 unit_identifier :=
 	pt
@@ -67,21 +261,57 @@ unit_identifier :=
 	px
 	em
 	ex
+	rem
+	vw
+	vh
+	vmin
+	vmax
+	ch
+	lh
+	rlh
+	cap
+	ic
+	dvw
+	dvh
+	svw
+	svh
+	lvw
+	lvh
+	cqw
+	cqh
 
 length :=
 	+integer+
 	+integer++unit_identifier+
+	0
+	calc(+integer++unit_identifier+ + +integer++unit_identifier+)
+	calc(+integer++unit_identifier+ - +integer++unit_identifier+)
+	calc(+integer++unit_identifier+ * +digit+)
+	calc(100% - +integer++unit_identifier+)
+	min(+integer++unit_identifier+, +integer++unit_identifier+)
+	max(+integer++unit_identifier+, +integer++unit_identifier+)
+	clamp(+integer++unit_identifier+, +integer++unit_identifier+, +integer++unit_identifier+)
+
+%%% === Number (main rule referenced by other grammars) ===
 
 number :=
 	+integer+
 	+decimal_number+
+	+scientific_number+
+	+ieee754_special+
+	+subnormal_float+
+	+typed_array_boundary+
+	0
+	1
+	-1
+	-0
+	0.5
+	-0.5
+	NaN
+	Infinity
+	-Infinity
 
-hex :=
-	%range%(0-9)
-	%range%(A-F)
-
-byte :=
-	0x+hex++hex+
+%%% === Characters and Text ===
 
 character :=
 	%range%(a-z)
@@ -90,20 +320,412 @@ character :=
 asciichar :=
 	%range%(!-~)
 
+%%% --- Control Characters & Null Bytes ---
+
+unicode_control :=
+	\u0000
+	\u0001
+	\u0002
+	\u0003
+	\u0004
+	\u0005
+	\u0006
+	\u0007
+	\u0008
+	\u000B
+	\u000C
+	\u000E
+	\u000F
+	\u0010
+	\u001B
+	\u001F
+	\u007F
+	\u0080
+	\u008D
+	\u0090
+	\u009D
+	\u009F
+
+%%% --- BOM, Noncharacters, Specials ---
+
+unicode_special :=
+	\uFEFF
+	\uFFFE
+	\uFFFF
+	\uFFFD
+	\uFFFC
+	\uFFF9
+	\uFFFA
+	\uFFFB
+	\u{FFFE}
+	\u{FFFF}
+	\u{1FFFE}
+	\u{1FFFF}
+	\u{2FFFE}
+	\u{10FFFE}
+	\u{10FFFF}
+
+%%% --- Surrogates (valid pairs only — lone surrogates break JS string literals) ---
+
+unicode_surrogate :=
+	\uD800\uDC00
+	\uD800\uDFFF
+	\uDB80\uDC00
+	\uDBFF\uDC00
+	\uDBFF\uDFFF
+
+%%% --- Invisible & Zero-Width Characters ---
+
+unicode_invisible :=
+	\u00A0
+	\u00AD
+	\u034F
+	\u061C
+	\u115F
+	\u1160
+	\u17B4
+	\u17B5
+	\u180E
+	\u200B
+	\u200C
+	\u200D
+	\u200E
+	\u200F
+	\u2028
+	\u2029
+	\u202F
+	\u2060
+	\u2061
+	\u2062
+	\u2063
+	\u2064
+	\u2066
+	\u2067
+	\u2068
+	\u2069
+	\u3164
+	\uFFA0
+
+%%% --- Bidi Overrides & Format Characters ---
+
+unicode_bidi :=
+	\u0600
+	\u0605
+	\u06DD
+	\u070F
+	\u08E2
+	\u202A
+	\u202B
+	\u202C
+	\u202D
+	\u202E
+	\u206A
+	\u206B
+	\u206C
+	\u206D
+	\u206E
+	\u206F
+	\u2066\u2069
+	\u202E\u202C
+	\u200F\u200E
+	\u2067abc\u2069
+	\u202Duser\u202C
+	\u2066\u2067\u2068\u2069
+
+%%% --- Combining Characters (stack on previous glyph) ---
+
+combining_single :=
+	\u0300
+	\u0301
+	\u0302
+	\u0303
+	\u0308
+	\u030A
+	\u0327
+	\u0328
+	\u0345
+	\u035C
+	\u0360
+	\u0361
+	\u0489
+	\u20DD
+	\u20DE
+	\u20DF
+	\u20E0
+	\u20E3
+
+combining_stack :=
+	\u0300\u0301\u0302
+	\u0300\u0301\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u0309
+	\u0300\u0301\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u0309\u030A\u030B\u030C\u030D\u030E\u030F\u0310\u0311\u0312\u0313
+	\u0CC6\u0CC2\u0CD5
+	a\u0300\u0301\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u0309\u030A\u030B\u030C\u030D\u030E\u030F
+	e\u0300\u0301\u0302\u0303\u0304\u0305\u0306\u0307\u0308\u0309\u030A\u030B\u030C\u030D\u030E\u030F\u0310\u0311\u0312\u0313\u0314\u0315\u0316\u0317\u0318\u0319\u031A\u031B\u031C\u031D\u031E\u031F
+	x\u0489\u0489\u0489\u0489\u0489
+	o\u20DD\u20DE\u20DF
+
+%%% --- Emoji (single, skin tones, ZWJ sequences, flags) ---
+
+emoji_single :=
+	\u{1F600}
+	\u{1F601}
+	\u{1F602}
+	\u{1F60D}
+	\u{1F621}
+	\u{1F631}
+	\u{1F4A9}
+	\u{1F47B}
+	\u{1F480}
+	\u{1F525}
+	\u{1F680}
+	\u{1F30D}
+	\u{2764}
+	\u{2602}
+	\u{2603}
+	\u{26A0}
+	\u{2B50}
+	\u{1FA79}
+	\u{1FAE0}
+	\u{1FAE8}
+
+emoji_skin_tone :=
+	\u{1F3FB}
+	\u{1F3FC}
+	\u{1F3FD}
+	\u{1F3FE}
+	\u{1F3FF}
+	\u{1F44B}\u{1F3FB}
+	\u{1F44B}\u{1F3FF}
+	\u{1F469}\u{1F3FD}
+
+emoji_zwj :=
+	\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}
+	\u{1F469}\u200D\u{1F4BB}
+	\u{1F468}\u200D\u{1F3A8}
+	\u{1F469}\u200D\u{2695}\uFE0F
+	\u{1F468}\u200D\u{1F468}\u200D\u{1F466}
+	\u{1F3F3}\uFE0F\u200D\u{1F308}
+	\u{1F3F4}\u200D\u2620\uFE0F
+	\u{1F9D1}\u200D\u{1F9D1}\u200D\u{1F9D2}\u200D\u{1F9D2}
+	\u{1F468}\u{1F3FB}\u200D\u{2764}\uFE0F\u200D\u{1F468}\u{1F3FF}
+	\u{1F935}\u200D\u{2640}\uFE0F
+
+emoji_flag :=
+	\u{1F1FA}\u{1F1F8}
+	\u{1F1EC}\u{1F1E7}
+	\u{1F1E9}\u{1F1EA}
+	\u{1F1EF}\u{1F1F5}
+	\u{1F1E8}\u{1F1F3}
+	\u{1F1EB}\u{1F1F7}
+	\u{1F1E7}\u{1F1F7}
+	\u{1F1FF}\u{1F1FC}
+
+%%% --- Tag Sequences (deprecated but parser-interesting) ---
+
+unicode_tag :=
+	\u{E0001}
+	\u{E0020}
+	\u{E0041}
+	\u{E005A}
+	\u{E007F}
+	\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}
+	\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}
+
+%%% --- Variation Selectors ---
+
+unicode_variation :=
+	\uFE00
+	\uFE01
+	\uFE0E
+	\uFE0F
+	\u{E0100}
+	\u{E0101}
+	\u{E01EF}
+	\u2764\uFE0F
+	\u2764\uFE0E
+	\u260E\uFE0F
+	\u260E\uFE0E
+
+%%% --- Homoglyphs & Confusables (look like ASCII but aren't) ---
+
+unicode_homoglyph :=
+	\u0410
+	\u0412
+	\u0415
+	\u041A
+	\u041C
+	\u041D
+	\u041E
+	\u0420
+	\u0421
+	\u0422
+	\u0425
+	\u0430
+	\u0435
+	\u043E
+	\u0440
+	\u0441
+	\u0445
+	\u0455
+	\u0456
+	\u04BB
+	\u{FF21}
+	\u{FF22}
+	\u{FF23}
+	\u{FF41}
+	\u{FF42}
+	\u{FF43}
+	\u{FF10}
+	\u{FF11}
+	\u{FF12}
+	\u{1D400}
+	\u{1D401}
+	\u{1D402}
+	\u{1D41A}
+	\u{1D41B}
+	\u{1D434}
+	\u{1D468}
+	\u{1D49C}
+	\u{1D4D0}
+	\u{1D504}
+	\u{1D538}
+	\u{1D56C}
+	\u{1D5A0}
+	\u{1D5D4}
+	\u{1D608}
+	\u{1D63C}
+	\u{1D670}
+	\u{1D7CE}
+	\u{1D7D8}
+	\u{1D7E2}
+	\u{1D7EC}
+	\u{1D7F6}
+
+%%% --- Whitespace Variants ---
+
+unicode_whitespace :=
+	\u0009
+	\u000A
+	\u000D
+	\u0020
+	\u0085
+	\u00A0
+	\u1680
+	\u2000
+	\u2001
+	\u2002
+	\u2003
+	\u2004
+	\u2005
+	\u2006
+	\u2007
+	\u2008
+	\u2009
+	\u200A
+	\u2028
+	\u2029
+	\u202F
+	\u205F
+	\u3000
+
+%%% --- Adversarial Unicode Strings ---
+%%% Note: All escape sequences must be valid JS unicode escapes since they
+%%% will appear inside JS string literals and template literals.
+
+unicode_adversarial :=
+	\u202Eabc\u202C
+	\u0041\u006C\u0069\u0063\u0065
+	\u0410\u006C\u0456\u0441\u0065
+	\u{1D400}\u{1D41B}\u{1D41C}
+	\uFEFF\uFEFF\uFEFF
+	\u200B\u200B\u200B\u200B\u200B
+	\u200D\u200D\u200D
+	\u034F\u034F\u034F\u034F
+	\u2060\u2060\u2060
+	test\u0000hidden
+	\u202Egnp.exe\u202C
+	\u0061\u200B\u0062\u200B\u0063
+	\u00E9
+	\u0065\u0301
+	\u00C5
+	\u0041\u030A
+	\u{2126}
+	\u03A9
+	fi
+	\uFB01
+
+%%% --- Main unicode rule ---
+
+unicode :=
+	+unicode_control+
+	+unicode_special+
+	+unicode_surrogate+
+	+unicode_invisible+
+	+unicode_bidi+
+	+combining_single+
+	+combining_stack+
+	+emoji_single+
+	+emoji_skin_tone+
+	+emoji_zwj+
+	+emoji_flag+
+	+unicode_tag+
+	+unicode_variation+
+	+unicode_homoglyph+
+	+unicode_whitespace+
+	+unicode_adversarial+
+
 text :=
 	%repeat%(+character+)
+	+character+
+	+unicode+
+	%repeat%(+character+)+unicode+%repeat%(+character+)
+	+unicode++unicode++unicode+
+	+unicode_adversarial+
+	+combining_stack+
+	+emoji_zwj+
+	javascript:alert(1)
+	%00
+	%0a%0d
+	AAAA%repeat%(A)
+	a\\u0000b
+	\\uD800\\uDC00
+	\\uDBFF\\uDFFF
+	%repeat%(+unicode_homoglyph+)
+	\\u202Egnp.exe\\u202C
+	\\uFEFF%repeat%(+character+)
+	\\u200B\\u200B\\u200B\\u200B\\u200B\\u200B\\u200B\\u200B
+	%repeat%(+combining_single+)
+	A%repeat%(\\u0300)
+	\\u{10FFFF}
 
-font :=
-	Arial
+%%% === Byte and Encoding ===
+
+byte :=
+	0x+hex++hex+
 
 encoding :=
 	ascii
-	utf8
-	utf16le
-	ucs2
-	base64
-	binary
-	hex
+	utf-8
+	utf-16
+	utf-16le
+	utf-16be
+	iso-8859-1
+	iso-8859-15
+	windows-1252
+	shift_jis
+	euc-jp
+	iso-2022-jp
+	euc-kr
+	gb18030
+	gbk
+	gb2312
+	big5
+	koi8-r
+	koi8-u
+	us-ascii
+	macintosh
+
+%%% === MIME Types ===
 
 image_mime_type :=
 	"image/gif"
@@ -111,29 +733,71 @@ image_mime_type :=
 	"image/jpeg"
 	"image/webp"
 	"image/svg+xml"
+	"image/avif"
+	"image/apng"
+	"image/bmp"
+	"image/x-icon"
+	"image/tiff"
+	"image/jxl"
 
 audio_mime_type :=
 	"audio/ogg"
 	"audio/mpeg"
+	"audio/wav"
+	"audio/webm"
+	"audio/flac"
+	"audio/aac"
+	"audio/mp4"
 	"audio/ogg; codecs='vorbis'"
+	"audio/ogg; codecs='opus'"
+	"audio/webm; codecs='opus'"
+	"audio/mp4; codecs='mp4a.40.2'"
+	"audio/mp4; codecs='flac'"
 
 video_mime_type :=
-	"video/ogg"
-	"video/ogg; codecs='theora,vorbis'"
 	"video/mp4"
+	"video/webm"
+	"video/ogg"
+	"video/av1"
+	"video/mp4; codecs='avc1.42E01E'"
 	"video/mp4; codecs='avc1.42E01E,mp4a.40.2'"
-	"video/webm; codecs='vorbis,vp8'"
+	"video/mp4; codecs='hev1.1.6.L93.B0'"
+	"video/mp4; codecs='av01.0.05M.08'"
+	"video/mp4; codecs='vp09.00.10.08'"
+	"video/webm; codecs='vp8'"
+	"video/webm; codecs='vp9'"
+	"video/webm; codecs='vp8,vorbis'"
+	"video/webm; codecs='vp9,opus'"
+	"video/webm; codecs='av01.0.05M.08'"
+	"video/ogg; codecs='theora,vorbis'"
 
 text_mime_type :=
 	"text/html"
 	"text/plain"
 	"text/css"
 	"text/javascript"
+	"text/xml"
+	"text/csv"
+	"text/markdown"
+	"text/event-stream"
+	"text/html; charset=utf-8"
 
 app_mime_type :=
+	"application/json"
+	"application/xml"
 	"application/xhtml+xml"
 	"application/octet-stream"
-	"application/x-shockwave-flash"
+	"application/pdf"
+	"application/wasm"
+	"application/javascript"
+	"application/x-www-form-urlencoded"
+	"application/ld+json"
+	"application/graphql"
+	"application/zip"
+	"application/gzip"
+	"application/cbor"
+	"application/msgpack"
+	"multipart/form-data"
 
 mime_type :=
 	+image_mime_type+
@@ -142,73 +806,682 @@ mime_type :=
 	+text_mime_type+
 	+app_mime_type+
 
+%%% === Codecs ===
+
 audio_codecs :=
 	"vorbis"
+	"opus"
+	"flac"
+	"mp4a.40.2"
+	"mp3"
+	"aac"
+	"pcm"
 
 video_codecs :=
-	"webm"
 	"vp8"
 	"vp9"
 	"theora"
+	"avc1.42E01E"
+	"avc1.4D401E"
+	"avc1.64001F"
+	"hev1.1.6.L93.B0"
+	"hvc1.1.6.L93.B0"
+	"av01.0.01M.08"
+	"av01.0.05M.08"
+	"av01.0.12M.10"
+	"vp09.00.10.08"
 
 codecs :=
 	+audio_codecs+
 	+video_codecs+
 
-color :=
+%%% === Colors (Modern CSS) ===
+
+named_color :=
 	red
 	green
 	blue
+	black
+	white
+	yellow
+	cyan
+	magenta
+	orange
+	purple
+	pink
+	lime
+	navy
+	teal
+	maroon
+	olive
+	aqua
+	fuchsia
+	silver
+	gray
+	transparent
+	currentColor
+	rebeccapurple
+	coral
+	tomato
+	crimson
+	darkcyan
+	darkmagenta
+	deeppink
+	dodgerblue
+	hotpink
+	indianred
+	lawngreen
+	lightcoral
+	lightsalmon
+
+hex_color :=
+	#000
+	#fff
+	#f00
+	#0f0
+	#00f
 	#555
 	#333
 	#222
+	#000000
+	#ffffff
+	#ff0000
+	#00ff00
+	#0000ff
+	#00000000
+	#ff000080
+	#ffffffff
+	#+hex++hex++hex+
+	#+hex++hex++hex++hex++hex++hex+
+	#+hex++hex++hex++hex++hex++hex++hex++hex+
+
+rgb_color :=
 	rgb(%range%(0-255), %range%(0-255), %range%(0-255))
-	rgba(%range%(0-255), %range%(0-255), %range%(0-255), +number+)
-	hsl(+number+, %range%(0-100)% %range%(0-100)%)
-	hsla(+number+, %range%(0-100)% %range%(0-100)%, +number+)
+	rgb(%range%(0-255) %range%(0-255) %range%(0-255))
+	rgb(%range%(0-255) %range%(0-255) %range%(0-255) / +alpha_value+)
+	rgba(%range%(0-255), %range%(0-255), %range%(0-255), +alpha_value+)
+	rgb(0, 0, 0)
+	rgb(255, 255, 255)
+	rgb(none none none)
+	rgb(from +named_color+ r g b)
+	rgb(from +named_color+ r g b / +alpha_value+)
+	rgb(+percent_value+ +percent_value+ +percent_value+)
+
+hsl_color :=
+	hsl(+number+, %range%(0-100)%, %range%(0-100)%)
+	hsl(+number+ %range%(0-100)% %range%(0-100)%)
+	hsl(+number+ %range%(0-100)% %range%(0-100)% / +alpha_value+)
+	hsla(+number+, %range%(0-100)%, %range%(0-100)%, +alpha_value+)
+	hsl(none none none)
+	hsl(from +named_color+ h s l)
+	hsl(+hue_value+ +percent_value+ +percent_value+)
+
+hwb_color :=
+	hwb(+hue_value+ +percent_value+ +percent_value+)
+	hwb(+hue_value+ +percent_value+ +percent_value+ / +alpha_value+)
+	hwb(none none none)
+	hwb(from +named_color+ h w b)
+
+lab_color :=
+	lab(%range%(0-100)% +ab_value+ +ab_value+)
+	lab(%range%(0-100)% +ab_value+ +ab_value+ / +alpha_value+)
+	lab(none none none)
+	lab(from +named_color+ l a b)
+
+lch_color :=
+	lch(%range%(0-100)% +chroma_value+ +hue_value+)
+	lch(%range%(0-100)% +chroma_value+ +hue_value+ / +alpha_value+)
+	lch(none none none)
+	lch(from +named_color+ l c h)
+
+oklab_color :=
+	oklab(+percent_value+ +ok_ab_value+ +ok_ab_value+)
+	oklab(+percent_value+ +ok_ab_value+ +ok_ab_value+ / +alpha_value+)
+	oklab(none none none)
+	oklab(from +named_color+ l a b)
+
+oklch_color :=
+	oklch(+percent_value+ +ok_chroma_value+ +hue_value+)
+	oklch(+percent_value+ +ok_chroma_value+ +hue_value+ / +alpha_value+)
+	oklch(none none none)
+	oklch(from +named_color+ l c h)
+
+color_function :=
+	color(srgb +unit_float+ +unit_float+ +unit_float+)
+	color(srgb-linear +unit_float+ +unit_float+ +unit_float+)
+	color(display-p3 +unit_float+ +unit_float+ +unit_float+)
+	color(a98-rgb +unit_float+ +unit_float+ +unit_float+)
+	color(prophoto-rgb +unit_float+ +unit_float+ +unit_float+)
+	color(rec2020 +unit_float+ +unit_float+ +unit_float+)
+	color(xyz +unit_float+ +unit_float+ +unit_float+)
+	color(xyz-d50 +unit_float+ +unit_float+ +unit_float+)
+	color(xyz-d65 +unit_float+ +unit_float+ +unit_float+)
+	color(srgb +unit_float+ +unit_float+ +unit_float+ / +alpha_value+)
+	color(display-p3 +unit_float+ +unit_float+ +unit_float+ / +alpha_value+)
+	color(from +named_color+ srgb r g b)
+
+color_mix :=
+	color-mix(in srgb, +named_color+ +percent_value+, +named_color+ +percent_value+)
+	color-mix(in srgb-linear, +named_color+, +named_color+)
+	color-mix(in lab, +named_color+ +percent_value+, +named_color+)
+	color-mix(in oklab, +named_color+, +named_color+)
+	color-mix(in oklch, +named_color+ +percent_value+, +named_color+ +percent_value+)
+	color-mix(in oklch longer hue, +named_color+, +named_color+)
+	color-mix(in oklch shorter hue, +named_color+, +named_color+)
+	color-mix(in hsl, +named_color+ +percent_value+, +named_color+ +percent_value+)
+	color-mix(in hwb, +named_color+, +named_color+)
+	color-mix(in lch, +named_color+, +named_color+)
+
+malformed_color :=
+	rgb(300, -10, 999)
+	rgb(-1, -1, -1)
+	rgba(0, 0, 0, -0.5)
+	rgba(0, 0, 0, 2.0)
+	hsl(9999, 200%, -50%)
+	#gggggg
+	#12345
+	rgb(none, none, none, none)
+	oklch(none none none / none)
+	color(srgb 2.0 -1.0 0.5)
+	color-mix(in srgb, red 150%, blue -50%)
+
+alpha_value :=
+	0
+	0.0
+	0.1
+	0.25
+	0.333
+	0.5
+	0.667
+	0.75
+	0.9
+	0.99
+	1
+	1.0
+
+unit_float :=
+	0
+	0.0
+	0.1
+	0.2
+	0.3
+	0.4
+	0.5
+	0.6
+	0.7
+	0.8
+	0.9
+	1.0
+	-0.1
+	1.1
+
+percent_value :=
+	0%
+	10%
+	25%
+	50%
+	75%
+	90%
+	100%
+	%range%(0-100)%
+
+hue_value :=
+	0
+	30
+	60
+	90
+	120
+	150
+	180
+	210
+	240
+	270
+	300
+	330
+	360
+	0deg
+	90deg
+	180deg
+	270deg
+	0.5turn
+	0.25turn
+	200grad
+	3.14159rad
+
+ab_value :=
+	0
+	25
+	50
+	-50
+	-25
+	100
+	-100
+	125
+	-125
+
+chroma_value :=
+	0
+	25
+	50
+	75
+	100
+	125
+	150
+	230
+
+ok_ab_value :=
+	0
+	0.1
+	0.2
+	-0.1
+	-0.2
+	0.4
+	-0.4
+
+ok_chroma_value :=
+	0
+	0.1
+	0.2
+	0.3
+	0.4
+	0.37
+
+color :=
+	+named_color+
+	+hex_color+
+	+rgb_color+
+	+hsl_color+
+	+hwb_color+
+	+lab_color+
+	+lch_color+
+	+oklab_color+
+	+oklch_color+
+	+color_function+
+	+color_mix+
+	+malformed_color+
+
+%%% === Fonts ===
+
+font_family_generic :=
+	serif
+	sans-serif
+	monospace
+	cursive
+	fantasy
+	system-ui
+	ui-serif
+	ui-sans-serif
+	ui-monospace
+	ui-rounded
+	math
+	emoji
+	fangsong
+
+font_family_named :=
+	Arial
+	"Helvetica Neue"
+	Helvetica
+	"Times New Roman"
+	Times
+	"Courier New"
+	Courier
+	Georgia
+	Verdana
+	"Trebuchet MS"
+	"Lucida Console"
+	"Lucida Sans Unicode"
+	Impact
+	"Comic Sans MS"
+	Tahoma
+	"Segoe UI"
+	Roboto
+	"Noto Sans"
+	"Noto Serif"
+	"SF Pro"
+	"SF Mono"
+	"-apple-system"
+	BlinkMacSystemFont
+	"Fira Code"
+	"JetBrains Mono"
+	"Source Code Pro"
+	"IBM Plex Sans"
+	"Inter"
+	"Open Sans"
+	"Montserrat"
+	"Lato"
+	"Playfair Display"
+
+font_family_system :=
+	caption
+	icon
+	menu
+	message-box
+	small-caption
+	status-bar
+
+font_weight :=
+	normal
+	bold
+	bolder
+	lighter
+	100
+	200
+	300
+	400
+	500
+	600
+	700
+	800
+	900
+	950
+	1
+	1000
+
+font_style :=
+	normal
+	italic
+	oblique
+	oblique 14deg
+	oblique -20deg
+
+font_stretch :=
+	ultra-condensed
+	extra-condensed
+	condensed
+	semi-condensed
+	normal
+	semi-expanded
+	expanded
+	extra-expanded
+	ultra-expanded
+	50%
+	75%
+	100%
+	125%
+	150%
+	200%
+
+font_size :=
+	xx-small
+	x-small
+	small
+	medium
+	large
+	x-large
+	xx-large
+	xxx-large
+	smaller
+	larger
+	+digit+px
+	+byte_int+px
+	+digit+em
+	+digit+rem
+	+digit+pt
+	%range%(50-200)%
+	calc(1em + 2px)
+	clamp(12px, 2vw, 24px)
+
+font_variant :=
+	normal
+	small-caps
+	all-small-caps
+	petite-caps
+	all-petite-caps
+	unicase
+	titling-caps
+
+font_variation_settings :=
+	"wght" +font_weight+
+	"wdth" %range%(50-200)
+	"ital" +unit_float+
+	"slnt" %range%(-90-90)
+	"opsz" %range%(6-144)
+	"GRAD" %range%(-200-150)
+	"CASL" +unit_float+
+	"CRSV" +unit_float+
+	"MONO" +unit_float+
+
+font_feature_settings :=
+	"liga" 1
+	"liga" 0
+	"kern" 1
+	"kern" 0
+	"calt" 1
+	"smcp" 1
+	"onum" 1
+	"tnum" 1
+	"frac" 1
+	"ss01" 1
+	"ss02" 1
+	"dlig" 1
+	"swsh" 1
+	"zero" 1
+	"ordn" 1
+
+font :=
+	+font_family_generic+
+	+font_family_named+
+	+font_family_system+
+	+font_size+ +font_family_generic+
+	+font_style+ +font_size+ +font_family_named+
+	+font_weight+ +font_size+ +font_family_named+
+	+font_style+ +font_weight+ +font_size+/1.5 +font_family_named+, +font_family_generic+
+	+font_weight+ +font_stretch+ +font_size+ +font_family_named+
+
+%%% === JavaScript Objects and Type Curiosities ===
 
 object :=
 	[]
+	[,]
+	[,,,,]
+	[0]
+	[+number+]
+	["+text+"]
 	{}
+	{a: 1}
+	{toString: function() { return "+text+"; }}
+	{valueOf: function() { return +number+; }}
+	{[Symbol.toPrimitive]: function(hint) { return +number+; }}
+	{[Symbol.iterator]: function*() { yield +number+; }}
+	{get x() { throw new Error(); }}
+	{__proto__: null}
 	function() {}
+	function() { return +number+; }
+	() => {}
+	() => +number+
+	async function() {}
+	function*() {}
 	new Object()
+	Object.create(null)
+	Object.create(Object.prototype)
+	new Proxy({}, {})
+	new Proxy({}, {get: function(t,p) { return t[p]; }})
+	Reflect
+	Symbol()
+	Symbol("test")
+	Symbol.iterator
+	Symbol.toPrimitive
+	Symbol.toStringTag
+	Symbol.hasInstance
+	Symbol.species
+	Symbol.asyncIterator
+	BigInt(0)
+	BigInt(+int+)
+	BigInt("9007199254740993")
+	BigInt("-9007199254740993")
+	0n
+	1n
+	9007199254740991n
+	-9007199254740991n
+	new Map()
+	new Set()
+	new WeakMap()
+	new WeakSet()
+	new WeakRef({})
+	new FinalizationRegistry(function() {})
+	new ArrayBuffer(+byte_int+)
+	new SharedArrayBuffer(+byte_int+)
+	new DataView(new ArrayBuffer(+byte_int+))
+	new Int8Array(+digit+)
+	new Uint8Array(+digit+)
+	new Uint8ClampedArray(+digit+)
+	new Int16Array(+digit+)
+	new Uint16Array(+digit+)
+	new Int32Array(+digit+)
+	new Uint32Array(+digit+)
+	new Float32Array(+digit+)
+	new Float64Array(+digit+)
+	new BigInt64Array(+digit+)
+	new BigUint64Array(+digit+)
+	new Promise(function(r) { r(+number+); })
+	Promise.resolve(+number+)
+	Promise.reject(new Error("+text+"))
+	new Error("+text+")
+	new TypeError("+text+")
+	new RangeError("+text+")
+	new RegExp("+character++character+*")
+	/+character+/g
+	new Date(0)
+	new Date(+int+)
+	new Date("Invalid")
+	new URL("https://example.com")
+	new URLSearchParams("a=1&b=2")
+	new Blob(["+text+"])
+	new File(["+text+"], "test.txt")
+	new TextEncoder()
+	new TextDecoder()
+	new AbortController()
+	new DOMParser()
+	new Event("+text+")
+	new CustomEvent("+text+", {detail: +number+})
+	globalThis
 	undefined
 	null
 	"+text+"
+	+number+
+	NaN
+	Infinity
+	-Infinity
+	-0
+	true
+	false
+	new String("+text+")
+	new Number(+number+)
+	new Boolean(true)
+	Object.freeze({})
+	Object.seal({a: 1})
+	JSON.parse("{}")
+	structuredClone({a: 1})
+	arguments
+	document.all
+	void 0
+
+%%% === Integer Overflow Values ===
 
 intoverflow :=
 	0
 	1
-	32768
-	65535
-	65536
-	357913942
-	2147483648
-	4294967296
-	8446744073709551616
-	-0
 	-1
-	-32768
-	-65535
-	-65536
-	-357913942
-	-2147483648
-	-4294967296
-	-8446744073709551616
+	-0
+	+uint8_boundary+
+	+int8_boundary+
+	+uint16_boundary+
+	+int16_boundary+
+	+uint32_boundary+
+	+int32_boundary+
+	+int64_boundary+
+	+uint64_boundary+
+	0x7f
+	0x80
 	0xff
-	0x3fffffff
-	0xffffffff
-	0xfffffffe
 	0x100
-	0x1000
+	0x7fff
+	0x8000
+	0xffff
 	0x10000
-	0x100000
+	0x7fffffff
 	0x80000000
+	0xffffffff
+	0x100000000
+	0x3fffffff
+	0xfffffffe
+	0x1000
+	0x10000000
+	9007199254740991
+	9007199254740992
+	9007199254740993
+	-9007199254740991
+	-9007199254740992
+	18446744073709551615
+	18446744073709551616
+
+%%% === Format Strings ===
 
 formatstr :=
 	%repeat%(%s)
 	%repeat%(%x)
 	%repeat%(%d)
+	%repeat%(%n)
+	%repeat%(%p)
 	AAAAA%s
 	AAAAA%x
 	AAAAA%d
+	AAAAA%n
+	%s%s%s%s%s%s%s%s%s%s
+	%x%x%x%x%x%x%x%x%x%x
+	%d%d%d%d%d%d%d%d%d%d
+	%n%n%n%n%n%n%n%n%n%n
+	%.1024d
+	%.2048d
+	%99999999s
+	%-1s
+	%+s
+	%#x
+	%08x
+
+%%% === Interesting Strings for Bug Finding ===
+
+interesting_string :=
+	+text+
+	undefined
+	null
+	NaN
+	Infinity
+	true
+	false
+	0
+	-1
+	__proto__
+	constructor
+	prototype
+	hasOwnProperty
+	__defineGetter__
+	__defineSetter__
+	__lookupGetter__
+	__lookupSetter__
+	toString
+	valueOf
+	toJSON
+	then
+	length
+	name
+	caller
+	arguments
+	\x00
+	\n
+	\r\n
+	\t
+	\0
+	\\
+	/
+	../
+	..\\
+	...
+	<
+	>
+	&
+	\'
+	\"
+	\`
+	${}
+	${+text+}

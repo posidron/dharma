@@ -1,0 +1,504 @@
+%%% WebNN API Grammar
+%%% W3C Candidate Recommendation Draft, 3 March 2026
+%%% https://www.w3.org/TR/webnn/
+%%%
+%%% Covers: MLContext, MLGraphBuilder, MLGraph, MLTensor, MLOperand
+%%% All operators from §8.9: element-wise, activation, convolution,
+%%% pooling, normalization, reduction, recurrent, tensor manipulation
+
+%require% common
+
+%const% OUTPUT_MIN := 3
+%const% OUTPUT_MAX := 15
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+
+%%% =========================================================================
+%%% Value Section — building blocks
+%%% =========================================================================
+
+%section% := value
+
+%%% --- Data types and descriptors ---
+
+dataType :=
+	"float32"
+	"float16"
+	"int32"
+	"uint32"
+	"int64"
+	"uint64"
+	"int8"
+	"uint8"
+
+floatDataType :=
+	"float32"
+	"float16"
+
+intDataType :=
+	"int32"
+	"uint32"
+	"int64"
+	"uint64"
+	"int8"
+	"uint8"
+
+indexDataType :=
+	"int32"
+	"uint32"
+	"int64"
+
+dim :=
+	%range%(1-8)
+	%range%(1-64)
+	%range%(1-256)
+	1
+	2
+	3
+	4
+
+shape :=
+	[+dim+]
+	[+dim+, +dim+]
+	[+dim+, +dim+, +dim+]
+	[+dim+, +dim+, +dim+, +dim+]
+	[1, +dim+, +dim+, +dim+]
+
+descriptor :=
+	{dataType: +floatDataType+, shape: +shape+}
+	{dataType: +dataType+, shape: +shape+}
+
+%%% --- Context and power preferences ---
+
+powerPreference :=
+	"default"
+	"high-performance"
+	"low-power"
+
+contextOptions :=
+	{}
+	{powerPreference: +powerPreference+}
+	{powerPreference: +powerPreference+, accelerated: +common:bool+}
+
+%%% --- Layouts ---
+
+inputLayout :=
+	"nchw"
+	"nhwc"
+
+conv2dFilterLayout :=
+	"oihw"
+	"hwio"
+	"ohwi"
+	"ihwo"
+
+convTranspose2dFilterLayout :=
+	"iohw"
+	"hwoi"
+	"ohwi"
+
+%%% --- Padding, strides, dilations ---
+
+padding4 :=
+	[%range%(0-3), %range%(0-3), %range%(0-3), %range%(0-3)]
+	[0, 0, 0, 0]
+	[1, 1, 1, 1]
+
+stride2 :=
+	[%range%(1-4), %range%(1-4)]
+	[1, 1]
+	[2, 2]
+
+dilation2 :=
+	[%range%(1-3), %range%(1-3)]
+	[1, 1]
+
+windowDim2 :=
+	[%range%(1-7), %range%(1-7)]
+	[3, 3]
+	[2, 2]
+
+%%% --- Buffer sizes and typed arrays ---
+
+bufferSize :=
+	%range%(1-16)
+	%range%(1-64)
+
+typedArray :=
+	new Float32Array(+bufferSize+).fill(%range%(0-9))
+	new Float32Array(+bufferSize+)
+	new Float32Array([%repeat%(%range%(0-9), ", ")])
+	new Int32Array(+bufferSize+)
+	new Uint8Array(+bufferSize+)
+
+%%% --- Scalar values ---
+
+scalarValue :=
+	%range%(0-255)
+	0
+	1
+	0.5
+	-1
+	0.01
+	0.001
+	1e-5
+
+%%% --- Operator option dictionaries ---
+
+conv2dOptions :=
+	{padding: +padding4+, strides: +stride2+, dilations: +dilation2+, groups: %range%(1-4), inputLayout: +inputLayout+, filterLayout: +conv2dFilterLayout+}
+	{padding: +padding4+, strides: +stride2+}
+	{inputLayout: +inputLayout+}
+	{}
+
+convTranspose2dOptions :=
+	{padding: +padding4+, strides: +stride2+, dilations: +dilation2+, inputLayout: +inputLayout+, filterLayout: +convTranspose2dFilterLayout+}
+	{strides: +stride2+}
+	{}
+
+pool2dOptions :=
+	{windowDimensions: +windowDim2+, padding: +padding4+, strides: +stride2+, layout: +inputLayout+}
+	{windowDimensions: +windowDim2+, strides: +stride2+}
+	{windowDimensions: +windowDim2+}
+	{}
+
+clampOptions :=
+	{minValue: +scalarValue+, maxValue: +scalarValue+}
+	{minValue: 0}
+	{maxValue: +scalarValue+}
+	{}
+
+eluOptions :=
+	{alpha: +scalarValue+}
+	{}
+
+leakyReluOptions :=
+	{alpha: 0.01}
+	{alpha: +scalarValue+}
+	{}
+
+hardSigmoidOptions :=
+	{alpha: 0.2, beta: 0.5}
+	{alpha: +scalarValue+, beta: +scalarValue+}
+	{}
+
+linearOptions :=
+	{alpha: +scalarValue+, beta: +scalarValue+}
+	{}
+
+reduceOptions :=
+	{axes: [%range%(0-3)], keepDimensions: +common:bool+}
+	{axes: [%range%(0-3), %range%(0-3)]}
+	{keepDimensions: +common:bool+}
+	{}
+
+gatherOptions :=
+	{axis: %range%(0-3)}
+	{}
+
+splitValue :=
+	%range%(1-4)
+	[%range%(1-4), %range%(1-4)]
+
+splitOptions :=
+	{axis: %range%(0-3)}
+	{}
+
+padMode :=
+	"constant"
+	"edge"
+	"reflection"
+
+padOptions :=
+	{mode: +padMode+, value: +scalarValue+}
+	{mode: +padMode+}
+	{}
+
+resample2dMode :=
+	"nearest-neighbor"
+	"linear"
+
+resample2dOptions :=
+	{mode: +resample2dMode+, scales: [%range%(1-4), %range%(1-4)]}
+	{mode: +resample2dMode+, sizes: [%range%(1-32), %range%(1-32)]}
+	{}
+
+batchNormOptions :=
+	{axis: %range%(0-3), epsilon: 1e-5}
+	{}
+
+layerNormOptions :=
+	{axes: [%range%(1-3)], epsilon: 1e-5}
+	{}
+
+instanceNormOptions :=
+	{layout: +inputLayout+, epsilon: 1e-5}
+	{}
+
+gemmOptions :=
+	{alpha: +scalarValue+, beta: +scalarValue+, aTranspose: +common:bool+, bTranspose: +common:bool+}
+	{aTranspose: +common:bool+}
+	{}
+
+transposeOptions :=
+	{permutation: [%repeat%(%range%(0-3), ", ")]}
+	{}
+
+triangularOptions :=
+	{upper: +common:bool+, diagonal: %range%(-3-3)}
+	{}
+
+gruWeightLayout :=
+	"zrn"
+	"rzn"
+
+lstmWeightLayout :=
+	"iofg"
+	"ifgo"
+
+rnnDirection :=
+	"forward"
+	"backward"
+	"both"
+
+rnnActivation :=
+	"relu"
+	"sigmoid"
+	"tanh"
+
+%%% --- Graph builder methods (unary operand ops) ---
+
+unaryFloatOp :=
+	!builder!.relu(!operand!)
+	!builder!.sigmoid(!operand!)
+	!builder!.tanh(!operand!)
+	!builder!.exp(!operand!)
+	!builder!.log(!operand!)
+	!builder!.sqrt(!operand!)
+	!builder!.abs(!operand!)
+	!builder!.ceil(!operand!)
+	!builder!.floor(!operand!)
+	!builder!.cos(!operand!)
+	!builder!.sin(!operand!)
+	!builder!.tan(!operand!)
+	!builder!.neg(!operand!)
+	!builder!.reciprocal(!operand!)
+	!builder!.erf(!operand!)
+	!builder!.identity(!operand!)
+	!builder!.sign(!operand!)
+	!builder!.roundEven(!operand!)
+
+activationOp :=
+	!builder!.relu(!operand!)
+	!builder!.sigmoid(!operand!)
+	!builder!.tanh(!operand!)
+	!builder!.elu(!operand!, +eluOptions+)
+	!builder!.leakyRelu(!operand!, +leakyReluOptions+)
+	!builder!.hardSigmoid(!operand!, +hardSigmoidOptions+)
+	!builder!.hardSwish(!operand!)
+	!builder!.softplus(!operand!)
+	!builder!.softsign(!operand!)
+	!builder!.gelu(!operand!)
+	!builder!.linear(!operand!, +linearOptions+)
+	!builder!.clamp(!operand!, +clampOptions+)
+
+%%% --- Binary ops ---
+
+binaryOp :=
+	!builder!.add(!operand!, !operand!)
+	!builder!.sub(!operand!, !operand!)
+	!builder!.mul(!operand!, !operand!)
+	!builder!.div(!operand!, !operand!)
+	!builder!.max(!operand!, !operand!)
+	!builder!.min(!operand!, !operand!)
+	!builder!.pow(!operand!, !operand!)
+
+%%% --- Logical ops ---
+
+logicalOp :=
+	!builder!.equal(!operand!, !operand!)
+	!builder!.notEqual(!operand!, !operand!)
+	!builder!.greater(!operand!, !operand!)
+	!builder!.greaterOrEqual(!operand!, !operand!)
+	!builder!.lesser(!operand!, !operand!)
+	!builder!.lesserOrEqual(!operand!, !operand!)
+	!builder!.logicalNot(!operand!)
+	!builder!.isNaN(!operand!)
+	!builder!.isInfinite(!operand!)
+
+%%% --- Reduction ops ---
+
+reduceOp :=
+	!builder!.reduceMax(!operand!, +reduceOptions+)
+	!builder!.reduceMean(!operand!, +reduceOptions+)
+	!builder!.reduceMin(!operand!, +reduceOptions+)
+	!builder!.reduceSum(!operand!, +reduceOptions+)
+	!builder!.reduceProduct(!operand!, +reduceOptions+)
+	!builder!.reduceL1(!operand!, +reduceOptions+)
+	!builder!.reduceL2(!operand!, +reduceOptions+)
+	!builder!.reduceLogSum(!operand!, +reduceOptions+)
+	!builder!.reduceLogSumExp(!operand!, +reduceOptions+)
+	!builder!.reduceSumSquare(!operand!, +reduceOptions+)
+	!builder!.argMin(!operand!, %range%(0-3))
+	!builder!.argMax(!operand!, %range%(0-3))
+	!builder!.cumulativeSum(!operand!, %range%(0-3))
+
+%%% --- Convolution and pooling ---
+
+convOp :=
+	!builder!.conv2d(!operand!, !operand!, +conv2dOptions+)
+	!builder!.convTranspose2d(!operand!, !operand!, +convTranspose2dOptions+)
+
+poolOp :=
+	!builder!.averagePool2d(!operand!, +pool2dOptions+)
+	!builder!.maxPool2d(!operand!, +pool2dOptions+)
+	!builder!.l2Pool2d(!operand!, +pool2dOptions+)
+
+%%% --- Matrix multiplication ---
+
+matmulOp :=
+	!builder!.matmul(!operand!, !operand!)
+	!builder!.gemm(!operand!, !operand!, +gemmOptions+)
+
+%%% --- Normalization ---
+
+normOp :=
+	!builder!.batchNormalization(!operand!, !operand!, !operand!, +batchNormOptions+)
+	!builder!.layerNormalization(!operand!, +layerNormOptions+)
+	!builder!.instanceNormalization(!operand!, +instanceNormOptions+)
+
+%%% --- Tensor manipulation ---
+
+reshapeOp :=
+	!builder!.reshape(!operand!, +shape+)
+	!builder!.transpose(!operand!, +transposeOptions+)
+	!builder!.concat([!operand!, !operand!], %range%(0-3))
+	!builder!.slice(!operand!, [%range%(0-3)], [%range%(1-4)])
+	!builder!.split(!operand!, +splitValue+, +splitOptions+)
+	!builder!.pad(!operand!, [%range%(0-2)], [%range%(0-2)], +padOptions+)
+	!builder!.expand(!operand!, +shape+)
+	!builder!.tile(!operand!, [%repeat%(%range%(1-3), ", ")])
+	!builder!.reverse(!operand!)
+	!builder!.triangular(!operand!, +triangularOptions+)
+	!builder!.where(!operand!, !operand!, !operand!)
+	!builder!.cast(!operand!, +dataType+)
+	!builder!.resample2d(!operand!, +resample2dOptions+)
+	!builder!.gather(!operand!, !operand!, +gatherOptions+)
+	!builder!.gatherElements(!operand!, !operand!, +gatherOptions+)
+	!builder!.gatherND(!operand!, !operand!)
+	!builder!.scatterElements(!operand!, !operand!, !operand!, +gatherOptions+)
+	!builder!.scatterND(!operand!, !operand!, !operand!)
+	!builder!.prelu(!operand!, !operand!)
+	!builder!.softmax(!operand!, %range%(0-3))
+
+%%% --- All builder operations ---
+
+builderOp :=
+	+unaryFloatOp+
+	+activationOp+
+	+binaryOp+
+	+reduceOp+
+	+convOp+
+	+poolOp+
+	+matmulOp+
+	+normOp+
+	+reshapeOp+
+
+%%% --- Context methods ---
+
+contextCreateTensor :=
+	await !context!.createTensor({dataType: +dataType+, shape: +shape+, readable: true, writable: true})
+	await !context!.createTensor({dataType: +floatDataType+, shape: +shape+, readable: true})
+	await !context!.createTensor({dataType: +dataType+, shape: +shape+, writable: true})
+
+contextWriteTensor :=
+	!context!.writeTensor(!tensor!, +typedArray+)
+
+contextReadTensor :=
+	await !context!.readTensor(!tensor!)
+
+contextDispatch :=
+	!context!.dispatch(!graph!, {"input_0": !tensor!}, {"output": !tensor!})
+	!context!.dispatch(!graph!, {"input_1": !tensor!}, {"output": !tensor!})
+	!context!.dispatch(!graph!, {"input_0": !tensor!, "input_1": !tensor!}, {"output": !tensor!})
+
+contextDestroy :=
+	!context!.destroy()
+
+%%% --- Graph lifecycle ---
+
+graphBuild :=
+	await !builder!.build({"output": !operand!})
+
+graphDestroy :=
+	!graph!.destroy()
+
+tensorDestroy :=
+	!tensor!.destroy()
+
+%%% --- Attribute reads ---
+
+operandAttr :=
+	!operand!.dataType
+	!operand!.shape
+
+tensorAttr :=
+	!tensor!.dataType
+	!tensor!.shape
+	!tensor!.readable
+	!tensor!.writable
+	!tensor!.constant
+
+contextAttr :=
+	!context!.accelerated
+	!context!.lost
+	!context!.opSupportLimits()
+
+%%% --- Top-level statements ---
+
+webnnStmt :=
+	+builderOp+
+	+contextCreateTensor+
+	+contextWriteTensor+
+	+contextReadTensor+
+	+contextDispatch+
+	+contextDestroy+
+	+graphBuild+
+	+graphDestroy+
+	+tensorDestroy+
+	+operandAttr+
+	+tensorAttr+
+	+contextAttr+
+
+%%% =========================================================================
+%%% Variable Section
+%%% =========================================================================
+
+%section% := variable
+
+context :=
+	const @ = await navigator.ml.createContext(+contextOptions+);
+
+builder :=
+	const @ = new MLGraphBuilder(!context!);
+
+operand :=
+	const @ = !builder!.input("input_0", +descriptor+);
+	const @ = !builder!.input("input_1", +descriptor+);
+	const @ = !builder!.constant(+descriptor+, +typedArray+);
+	const @ = !builder!.constant(+floatDataType+, +scalarValue+);
+	const @ = +builderOp+;
+
+tensor :=
+	const @ = +contextCreateTensor+;
+
+graph :=
+	const @ = +graphBuild+;
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+webnnStmt+;

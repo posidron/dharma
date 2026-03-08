@@ -1,50 +1,169 @@
-%%% Canvas2D API
+%%% Canvas 2D Context API Grammar
+%%% WHATWG HTML Living Standard — Canvas 2D Context (March 2026)
+%%% https://html.spec.whatwg.org/multipage/canvas.html
+%%%
+%%% Covers: CanvasRenderingContext2D, OffscreenCanvasRenderingContext2D,
+%%% ImageBitmapRenderingContext, OffscreenCanvas, Path2D, CanvasGradient,
+%%% CanvasPattern, TextMetrics, ImageData, createImageBitmap
+%%%
+%%% Mixins: CanvasState, CanvasTransform, CanvasCompositing,
+%%% CanvasImageSmoothing, CanvasFillStrokeStyles, CanvasShadowStyles,
+%%% CanvasFilters, CanvasRect, CanvasDrawPath, CanvasUserInterface,
+%%% CanvasText, CanvasDrawImage, CanvasImageData, CanvasPathDrawingStyles,
+%%% CanvasTextDrawingStyles, CanvasPath
 
-%%% Specification: http://www.w3.org/html/wg/drafts/2dcontext/html5_canvas/
-%%% Firefox WebIDL: https://github.com/mozilla/gecko-dev/blob/inbound/dom/webidl/CanvasRenderingContext2D.webidl
-%%% Blink WebIDL: https://github.com/mirrors/blink/tree/master/Source/core/html/canvas
+%require% common
 
-%%% ###########################################################################
-
-%const% VARIANCE_MAX := 10
-%const% VARIANCE_TEMPLATE := "try { %s } catch (e) { }"
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 25
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
 %const% MAX_REPEAT_POWER := 4
 
-%%% ###########################################################################
+%%% =========================================================================
+%%% Value Section
+%%% =========================================================================
 
 %section% := value
 
-Canvas2DContextAttributeOptions :=
-	alpha:+common:bool+
-	willReadFrequently:+common:bool+
+%%% --- Numeric helpers ---
 
-Canvas2DContextAttributes :=
-	{ +Canvas2DContextAttributeOptions+ }
-	{ %repeat%(+Canvas2DContextAttributeOptions+, ", ") }
+coord :=
+	0
+	1
+	10
+	50
+	100
+	150
+	200
+	300
+	-1
+	-50
+	0.5
+	99.9
+	%range%(0-500)
+	+common:number+
 
-canvasWindingRule :=
+dimension :=
+	1
+	2
+	50
+	100
+	150
+	200
+	300
+	400
+	500
+	800
+	1024
+	0
+	%range%(1-2048)
+
+angle :=
+	0
+	0.5
+	1.0
+	1.5707963
+	3.14159265
+	4.71238898
+	6.28318530
+	-1.5707963
+	Math.PI
+	Math.PI / 2
+	Math.PI * 2
+	Math.PI / 4
+	Math.PI * 1.5
+	Math.PI / 3
+
+radius :=
+	0
+	1
+	5
+	10
+	20
+	50
+	100
+	%range%(0-300)
+
+alpha :=
+	0
+	0.1
+	0.25
+	0.5
+	0.75
+	0.9
+	1.0
+	0.33
+	0.66
+	0.15
+
+lineWidthVal :=
+	0.5
+	1
+	2
+	3
+	5
+	10
+	20
+	0.1
+	50
+	%range%(1-100)
+
+miterLimitVal :=
+	1
+	2
+	5
+	10
+	20
+	50
+	100
+
+dashOffset :=
+	0
+	1
+	5
+	10
+	-5
+
+%%% --- Enumerations from the spec ---
+
+fillRule :=
 	nonzero
 	evenodd
 
-globalCompositeOperation :=
-	source-atop
+compositeOp :=
+	source-over
 	source-in
 	source-out
-	source-over
-	destination-atop
+	source-atop
+	destination-over
 	destination-in
 	destination-out
-	destination-over
+	destination-atop
 	lighter
 	copy
+	xor
+	multiply
+	screen
+	overlay
+	darken
+	lighten
+	color-dodge
+	color-burn
+	hard-light
+	soft-light
+	difference
 	exclusion
+	hue
+	saturation
+	color
+	luminosity
 
-lineJoin :=
+lineCap :=
 	butt
 	round
 	square
 
-lineCap :=
+lineJoin :=
 	round
 	bevel
 	miter
@@ -64,59 +183,413 @@ textBaseline :=
 	ideographic
 	bottom
 
-dash_array_values :=
-	0
-	1
+direction :=
+	ltr
+	rtl
+	inherit
 
-createPattern_params :=
+fontKerning :=
+	auto
+	normal
+	none
+
+fontStretch :=
+	ultra-condensed
+	extra-condensed
+	condensed
+	semi-condensed
+	normal
+	semi-expanded
+	expanded
+	extra-expanded
+	ultra-expanded
+
+fontVariantCaps :=
+	normal
+	small-caps
+	all-small-caps
+	petite-caps
+	all-petite-caps
+	unicase
+	titling-caps
+
+textRendering :=
+	auto
+	optimizeSpeed
+	optimizeLegibility
+	geometricPrecision
+
+imageSmoothingQuality :=
+	low
+	medium
+	high
+
+repetition :=
 	repeat
 	repeat-x
 	repeat-y
 	no-repeat
 
-hitRegionOptionValues :=
-	id:"!hitRegion!"
-	control: null
+colorSpace :=
+	srgb
+	srgb-linear
+	display-p3
+	display-p3-linear
 
-hitRegionOptions :=
-	{ +hitRegionOptionValues+ }
-	{ %repeat%(+hitRegionOptionValues+, ", ") }
+colorType :=
+	unorm8
+	float16
 
-canvasAttributes :=
-	!context!.canvas.width=+common:number+;
-	!context!.canvas.height=+common:number+;
-	!context!.canvas.mozOpaque=+common:bool+;
+%%% --- CSS filter functions ---
 
-contextAttributes :=
-	!context!.globalAlpha=+common:number+;
-	!context!.globalCompositeOperation="+globalCompositeOperation+";
-	!context!.strokeStyle="+common:color+";
-	!context!.fillStyle="+common:color+";
-	!context!.shadowOffsetX=+common:number+;
-	!context!.shadowOffsetY=+common:number+;
-	!context!.shadowBlur="+common:number+";
-	!context!.shadowColor="+common:color+";
-	!context!.lineWidth="+common:number+";
-	!context!.lineCap="+lineCap+";
-	!context!.lineJoin="+lineJoin+";
-	!context!.lineDashOffset=+common:number+;
-	!context!.miterLimit=+common:number+;
-	!context!.font="+common:font+";
-	!context!.textAlign="+textAlign+";
-	!context!.textBaseline="+textBaseline+";
+filterFunction :=
+	blur(%range%(0-20)px)
+	brightness(+alpha+)
+	contrast(+alpha+)
+	drop-shadow(+coord+px +coord+px +radius+px +common:color+)
+	grayscale(+alpha+)
+	hue-rotate(%range%(0-360)deg)
+	invert(+alpha+)
+	opacity(+alpha+)
+	saturate(+alpha+)
+	sepia(+alpha+)
 
-Gecko_contextAttributes :=
-	!context!.mozImageSmoothingEnabled=+common:bool+;
-	!context!.mozDashOffset=+common:number+;
-	!context!.mozFillRule="+canvasWindingRule+";
-	!context!.mozDash=!dash_array!;
-	!context!.mozCurrentTransform=!currentTransform_array!;
-	!context!.mozCurrentTransformInverse=!currentTransformInverse_array!;
+filterValue :=
+	none
+	+filterFunction+
+	+filterFunction+ +filterFunction+
+	+filterFunction+ +filterFunction+ +filterFunction+
+	url(#svgFilter)
 
-WebKit_contextAttributes :=
-	!context!.webkitImageSmoothingEnabled=+common:bool+;
+%%% --- CSS font values ---
 
-textMetricReadAttributes :=
+fontSize :=
+	8px
+	10px
+	12px
+	14px
+	16px
+	20px
+	24px
+	32px
+	48px
+	64px
+	72px
+	100px
+
+fontFamily :=
+	sans-serif
+	serif
+	monospace
+	cursive
+	fantasy
+	system-ui
+	Arial
+	"Times New Roman"
+	"Courier New"
+
+fontStyle :=
+	normal
+	italic
+	oblique
+
+fontWeight :=
+	normal
+	bold
+	100
+	200
+	300
+	400
+	500
+	600
+	700
+	800
+	900
+
+fontSpec :=
+	+fontSize+ +fontFamily+
+	+fontWeight+ +fontSize+ +fontFamily+
+	+fontStyle+ +fontSize+ +fontFamily+
+	+fontStyle+ +fontWeight+ +fontSize+ +fontFamily+
+
+%%% --- CSS length for letter/word spacing ---
+
+cssLength :=
+	0px
+	1px
+	2px
+	5px
+	-1px
+	0.5px
+	10px
+	0.5em
+	1em
+	-0.5em
+
+%%% --- SVG path data for Path2D ---
+
+svgPathData :=
+	M 0 0 L +coord+ +coord+ L +coord+ +coord+ Z
+	M +coord+ +coord+ L +coord+ +coord+ L +coord+ +coord+ L +coord+ +coord+ Z
+	M +coord+ +coord+ Q +coord+ +coord+ +coord+ +coord+
+	M +coord+ +coord+ C +coord+ +coord+ +coord+ +coord+ +coord+ +coord+
+	M +coord+ +coord+ A +radius+ +radius+ 0 0 1 +coord+ +coord+
+	M 0 0 h +coord+ v +coord+ h -+coord+ Z
+	M +coord+ +coord+ l +coord+ +coord+ l +coord+ +coord+ z
+
+%%% --- Context options ---
+
+contextOption :=
+	alpha: +common:bool+
+	desynchronized: +common:bool+
+	colorSpace: "+colorSpace+"
+	colorType: "+colorType+"
+	willReadFrequently: +common:bool+
+
+contextOptions :=
+	{ %repeat%(+contextOption+, ", ") }
+	{ alpha: +common:bool+ }
+	{ colorSpace: "+colorSpace+", colorType: "+colorType+" }
+	{ alpha: +common:bool+, desynchronized: +common:bool+ }
+	{}
+
+%%% --- Dash patterns ---
+
+dashPattern :=
+	[5, 5]
+	[10, 5]
+	[5, 10, 15]
+	[4, 2, 1, 2]
+	[10, 10]
+	[15, 5, 5, 5]
+	[]
+	[+lineWidthVal+, +lineWidthVal+]
+
+%%% --- RoundRect radii ---
+
+roundRectRadii :=
+	+radius+
+	[+radius+]
+	[+radius+, +radius+]
+	[+radius+, +radius+, +radius+]
+	[+radius+, +radius+, +radius+, +radius+]
+	{x: +radius+, y: +radius+}
+	[{x: +radius+, y: +radius+}]
+
+%%% --- DOMMatrix2DInit for setTransform ---
+
+domMatrixInit :=
+	{a: +alpha+, b: 0, c: 0, d: +alpha+, e: +coord+, f: +coord+}
+	{m11: 1, m12: 0, m21: 0, m22: 1, m41: +coord+, m42: +coord+}
+	{a: +coord+, b: +coord+, c: +coord+, d: +coord+, e: +coord+, f: +coord+}
+	{}
+
+%%% --- ImageData settings ---
+
+imageDataSettings :=
+	{ colorSpace: "+colorSpace+" }
+	{}
+
+%%% --- Image encode options ---
+
+encodeType :=
+	image/png
+	image/jpeg
+	image/webp
+
+%%% =========================================================================
+%%% Context attributes — property assignments
+%%% =========================================================================
+
+canvasDimension :=
+	!ctx!.canvas.width = +dimension+;
+	!ctx!.canvas.height = +dimension+;
+
+%%% --- CanvasCompositing ---
+
+compositingAttr :=
+	!ctx!.globalAlpha = +alpha+;
+	!ctx!.globalCompositeOperation = "+compositeOp+";
+
+%%% --- CanvasImageSmoothing ---
+
+smoothingAttr :=
+	!ctx!.imageSmoothingEnabled = +common:bool+;
+	!ctx!.imageSmoothingQuality = "+imageSmoothingQuality+";
+
+%%% --- CanvasFillStrokeStyles ---
+
+fillStrokeAttr :=
+	!ctx!.fillStyle = "+common:color+";
+	!ctx!.strokeStyle = "+common:color+";
+	!ctx!.fillStyle = !linearGradient!;
+	!ctx!.fillStyle = !radialGradient!;
+	!ctx!.fillStyle = !conicGradient!;
+	!ctx!.fillStyle = !pattern!;
+	!ctx!.strokeStyle = !linearGradient!;
+	!ctx!.strokeStyle = !radialGradient!;
+	!ctx!.strokeStyle = !conicGradient!;
+	!ctx!.strokeStyle = !pattern!;
+
+%%% --- CanvasShadowStyles ---
+
+shadowAttr :=
+	!ctx!.shadowOffsetX = +coord+;
+	!ctx!.shadowOffsetY = +coord+;
+	!ctx!.shadowBlur = +radius+;
+	!ctx!.shadowColor = "+common:color+";
+
+%%% --- CanvasFilters ---
+
+filterAttr :=
+	!ctx!.filter = "+filterValue+";
+
+%%% --- CanvasPathDrawingStyles ---
+
+lineStyleAttr :=
+	!ctx!.lineWidth = +lineWidthVal+;
+	!ctx!.lineCap = "+lineCap+";
+	!ctx!.lineJoin = "+lineJoin+";
+	!ctx!.miterLimit = +miterLimitVal+;
+	!ctx!.lineDashOffset = +dashOffset+;
+
+%%% --- CanvasTextDrawingStyles ---
+
+textStyleAttr :=
+	!ctx!.font = "+fontSpec+";
+	!ctx!.textAlign = "+textAlign+";
+	!ctx!.textBaseline = "+textBaseline+";
+	!ctx!.direction = "+direction+";
+	!ctx!.letterSpacing = "+cssLength+";
+	!ctx!.wordSpacing = "+cssLength+";
+	!ctx!.fontKerning = "+fontKerning+";
+	!ctx!.fontStretch = "+fontStretch+";
+	!ctx!.fontVariantCaps = "+fontVariantCaps+";
+	!ctx!.textRendering = "+textRendering+";
+
+%%% =========================================================================
+%%% Context methods
+%%% =========================================================================
+
+%%% --- CanvasState ---
+
+stateMethod :=
+	!ctx!.save();
+	!ctx!.restore();
+	!ctx!.reset();
+	!ctx!.isContextLost();
+
+%%% --- CanvasSettings ---
+
+settingsMethod :=
+	!ctx!.getContextAttributes();
+
+%%% --- CanvasTransform ---
+
+transformMethod :=
+	!ctx!.scale(+coord+, +coord+);
+	!ctx!.rotate(+angle+);
+	!ctx!.translate(+coord+, +coord+);
+	!ctx!.transform(+coord+, +coord+, +coord+, +coord+, +coord+, +coord+);
+	!ctx!.setTransform(+coord+, +coord+, +coord+, +coord+, +coord+, +coord+);
+	!ctx!.setTransform(+domMatrixInit+);
+	!ctx!.getTransform();
+	!ctx!.resetTransform();
+
+%%% --- CanvasRect ---
+
+rectMethod :=
+	!ctx!.clearRect(+coord+, +coord+, +dimension+, +dimension+);
+	!ctx!.fillRect(+coord+, +coord+, +dimension+, +dimension+);
+	!ctx!.strokeRect(+coord+, +coord+, +dimension+, +dimension+);
+
+%%% --- CanvasPath building ---
+
+pathBuildOp :=
+	!ctx!.moveTo(+coord+, +coord+);
+	!ctx!.lineTo(+coord+, +coord+);
+	!ctx!.quadraticCurveTo(+coord+, +coord+, +coord+, +coord+);
+	!ctx!.bezierCurveTo(+coord+, +coord+, +coord+, +coord+, +coord+, +coord+);
+	!ctx!.arcTo(+coord+, +coord+, +coord+, +coord+, +radius+);
+	!ctx!.arc(+coord+, +coord+, +radius+, +angle+, +angle+);
+	!ctx!.arc(+coord+, +coord+, +radius+, +angle+, +angle+, +common:bool+);
+	!ctx!.ellipse(+coord+, +coord+, +radius+, +radius+, +angle+, +angle+, +angle+);
+	!ctx!.ellipse(+coord+, +coord+, +radius+, +radius+, +angle+, +angle+, +angle+, +common:bool+);
+	!ctx!.rect(+coord+, +coord+, +dimension+, +dimension+);
+	!ctx!.roundRect(+coord+, +coord+, +dimension+, +dimension+, +roundRectRadii+);
+	!ctx!.closePath();
+
+%%% --- CanvasDrawPath ---
+
+drawPathMethod :=
+	!ctx!.beginPath();
+	!ctx!.fill();
+	!ctx!.fill("+fillRule+");
+	!ctx!.fill(!path2d!, "+fillRule+");
+	!ctx!.stroke();
+	!ctx!.stroke(!path2d!);
+	!ctx!.clip();
+	!ctx!.clip("+fillRule+");
+	!ctx!.clip(!path2d!, "+fillRule+");
+	!ctx!.isPointInPath(+coord+, +coord+);
+	!ctx!.isPointInPath(+coord+, +coord+, "+fillRule+");
+	!ctx!.isPointInPath(!path2d!, +coord+, +coord+, "+fillRule+");
+	!ctx!.isPointInStroke(+coord+, +coord+);
+	!ctx!.isPointInStroke(!path2d!, +coord+, +coord+);
+
+%%% --- CanvasText ---
+
+textMethod :=
+	!ctx!.fillText("+common:text+", +coord+, +coord+);
+	!ctx!.fillText("+common:text+", +coord+, +coord+, +dimension+);
+	!ctx!.strokeText("+common:text+", +coord+, +coord+);
+	!ctx!.strokeText("+common:text+", +coord+, +coord+, +dimension+);
+	!ctx!.measureText("+common:text+");
+
+%%% --- CanvasDrawImage ---
+
+drawImageMethod :=
+	!ctx!.drawImage(!imgSrc!, +coord+, +coord+);
+	!ctx!.drawImage(!imgSrc!, +coord+, +coord+, +dimension+, +dimension+);
+	!ctx!.drawImage(!imgSrc!, +coord+, +coord+, +dimension+, +dimension+, +coord+, +coord+, +dimension+, +dimension+);
+
+%%% --- CanvasImageData ---
+
+imageDataMethod :=
+	!ctx!.createImageData(+dimension+, +dimension+);
+	!ctx!.createImageData(+dimension+, +dimension+, +imageDataSettings+);
+	!ctx!.createImageData(!imageData!);
+	!ctx!.getImageData(+coord+, +coord+, +dimension+, +dimension+);
+	!ctx!.getImageData(+coord+, +coord+, +dimension+, +dimension+, +imageDataSettings+);
+	!ctx!.putImageData(!imageData!, +coord+, +coord+);
+	!ctx!.putImageData(!imageData!, +coord+, +coord+, +coord+, +coord+, +dimension+, +dimension+);
+
+%%% --- CanvasFillStrokeStyles methods ---
+
+gradientMethod :=
+	!linearGradient!.addColorStop(+alpha+, "+common:color+");
+	!radialGradient!.addColorStop(+alpha+, "+common:color+");
+	!conicGradient!.addColorStop(+alpha+, "+common:color+");
+
+patternMethod :=
+	!pattern!.setTransform(+domMatrixInit+);
+
+dashMethod :=
+	!ctx!.setLineDash(+dashPattern+);
+	!ctx!.getLineDash();
+
+%%% --- CanvasUserInterface ---
+
+focusMethod :=
+	!ctx!.drawFocusIfNeeded(document.activeElement || document.body);
+	!ctx!.drawFocusIfNeeded(!path2d!, document.activeElement || document.body);
+
+%%% --- TextMetrics reads ---
+
+textMetricRead :=
+	!textMetrics!.width
+	!textMetrics!.actualBoundingBoxLeft
+	!textMetrics!.actualBoundingBoxRight
 	!textMetrics!.fontBoundingBoxAscent
 	!textMetrics!.fontBoundingBoxDescent
 	!textMetrics!.actualBoundingBoxAscent
@@ -127,146 +600,184 @@ textMetricReadAttributes :=
 	!textMetrics!.alphabeticBaseline
 	!textMetrics!.ideographicBaseline
 
-contextMethods :=
-	!context!.save();
-	!context!.restore();
-	!context!.scale(+common:number+, +common:number+);
-	!context!.rotate(+common:number+);
-	!context!.translate(+common:number+, +common:number+);
-	!context!.transform(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setTransform(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.clearRect(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.fillRect(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.strokeRect(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.beginPath();
-	!context!.stroke();
-	!context!.stroke(!path2D!);
-	!context!.fill("+canvasWindingRule+");
-	!context!.fill(!path2D!, "+canvasWindingRule+");
-	!context!.clip("+canvasWindingRule+");
-	!context!.clip(!path2D!, "+canvasWindingRule+");
-	!context!.isPointInPath(+common:number+, +common:number+, "+canvasWindingRule+");
-	!context!.isPointInPath(!path2D!, +common:number+, +common:number+, "+canvasWindingRule+");
-	!context!.isPointInStroke(+common:number+, +common:number+);
-	!context!.isPointInStroke(!path2D!, +common:number+, +common:number+);
-	!context!.fillText("+common:text+", +common:number+, +common:number+);
-	!context!.strokeText("+common:text+", +common:number+, +common:number+);
-	!context!.strokeText("+common:text+", +common:number+, +common:number+, +common:number+);
-	!context!.measureText("+common:text+");
-	!context!.closePath();
-	!context!.moveTo(+common:number+, +common:number+);
-	!context!.lineTo(+common:number+, +common:number+);
-	!context!.quadraticCurveTo(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.bezierCurveTo(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.rect(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.arcTo(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.arc(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:bool+);
-	!context!.setLineDash(!dash_array!);
-	!context!.getLineDash();
-	!context!.addHitRegion(!hitRegion!);
-	!context!.removeHitRegion(!hitRegion!.id);
-	!context!.drawFocusIfNeeded(document.documentElement);
-	!context!.drawCustomFocusRing(document.documentElement);
-	!canvasGradient!.addColorStop(+common:decimal_number+, "+common:color+");
-	!context!.drawImage(!imageElement!, +common:number+, +common:number+);
-	!context!.drawImage(!imageElement!, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.drawImage(!imageElement!, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.putImageData(!imageData!, +common:number+, +common:number+);
-	!context!.putImageData(!imageData!, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.canvas.toDataURL(+common:mime_type+);
-	!context!.canvas.toBlob(function(b){n=document.createElement("img"),u=URL.createObjectURL(b);n.onload=function(){URL.revokeObjectURL(u);};n.src=u;document.body.appendChild(n);}, +common:mime_type+, +common:number+);
+%%% --- Canvas element methods ---
 
-Gecko_contextMethods :=
-	!context!.canvas.mozGetAsFile("+common:text+", +common:mime_type+);
+canvasElementMethod :=
+	!ctx!.canvas.toDataURL();
+	!ctx!.canvas.toDataURL("+encodeType+");
+	!ctx!.canvas.toDataURL("+encodeType+", +alpha+);
+	!ctx!.canvas.toBlob(function(b) {}, "+encodeType+", +alpha+);
 
-Blink_contextMethods :=
-	!context!.setAlpha(+common:number+);
-	!context!.setCompositeOperation("+globalCompositeOperation+");
-	!context!.setLineWidth(+common:number+);
-	!context!.setLineCap("+lineCap+");
-	!context!.setLineJoin("+lineJoin+");
-	!context!.setMiterLine(+common:number+);
-	!context!.setStrokeColor("+common:color+", +common:number+);
-	!context!.setStrokeColor(+common:number+, +common:number+);
-	!context!.setStrokeColor(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setStrokeColor(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setFillColor("+common:color+", +common:number+);
-	!context!.setFillColor(+common:number+, +common:number+);
-	!context!.setFillColor(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setFillColor(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.clearShadow();
-	!context!.setShadow(+common:number+, +common:number+, +common:number+, "+common:color+", +common:number+);
-	!context!.setShadow(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setShadow(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.setShadow(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.webkitGetImageDataHD(+common:number+, +common:number+, +common:number+, +common:number+);
-	!context!.webkitPutImageDataHD();
-	!context!.getContextAttributes();
+%%% --- OffscreenCanvas methods ---
+
+offscreenMethod :=
+	!offscreen!.getContext("2d");
+	!offscreen!.getContext("2d", +contextOptions+);
+	!offscreen!.transferToImageBitmap();
+	!offscreen!.convertToBlob();
+	!offscreen!.convertToBlob({ type: "+encodeType+" });
+	!offscreen!.convertToBlob({ type: "+encodeType+", quality: +alpha+ });
+	!offscreen!.width = +dimension+;
+	!offscreen!.height = +dimension+;
+	!offscreen!.width
+	!offscreen!.height
+
+%%% --- ImageBitmapRenderingContext methods ---
+
+bitmapRendererMethod :=
+	!bitmapCtx!.transferFromImageBitmap(!imageBitmap!);
+	!bitmapCtx!.transferFromImageBitmap(null);
+
+%%% --- Path2D methods ---
+
+path2dBuild :=
+	!path2d!.moveTo(+coord+, +coord+);
+	!path2d!.lineTo(+coord+, +coord+);
+	!path2d!.quadraticCurveTo(+coord+, +coord+, +coord+, +coord+);
+	!path2d!.bezierCurveTo(+coord+, +coord+, +coord+, +coord+, +coord+, +coord+);
+	!path2d!.arcTo(+coord+, +coord+, +coord+, +coord+, +radius+);
+	!path2d!.arc(+coord+, +coord+, +radius+, +angle+, +angle+);
+	!path2d!.arc(+coord+, +coord+, +radius+, +angle+, +angle+, +common:bool+);
+	!path2d!.ellipse(+coord+, +coord+, +radius+, +radius+, +angle+, +angle+, +angle+);
+	!path2d!.ellipse(+coord+, +coord+, +radius+, +radius+, +angle+, +angle+, +angle+, +common:bool+);
+	!path2d!.rect(+coord+, +coord+, +dimension+, +dimension+);
+	!path2d!.roundRect(+coord+, +coord+, +dimension+, +dimension+, +roundRectRadii+);
+	!path2d!.closePath();
+	!path2d!.addPath(!path2d!);
+	!path2d!.addPath(!path2d!, +domMatrixInit+);
+
+%%% --- createImageBitmap factory ---
+
+createImageBitmapCall :=
+	createImageBitmap(!imgSrc!).then(function(bmp) { !ctx!.drawImage(bmp, 0, 0); });
+	createImageBitmap(!imgSrc!, +coord+, +coord+, +dimension+, +dimension+).then(function(bmp) { !ctx!.drawImage(bmp, 0, 0); });
+
+%%% =========================================================================
+%%% Aggregate rules — combine related operations
+%%% =========================================================================
+
+setAttributes :=
+	+canvasDimension+
+	+compositingAttr+
+	+smoothingAttr+
+	+fillStrokeAttr+
+	+shadowAttr+
+	+filterAttr+
+	+lineStyleAttr+
+	+textStyleAttr+
+
+callMethod :=
+	+stateMethod+
+	+settingsMethod+
+	+transformMethod+
+	+rectMethod+
+	+drawPathMethod+
+	+textMethod+
+	+drawImageMethod+
+	+imageDataMethod+
+	+gradientMethod+
+	+patternMethod+
+	+dashMethod+
+	+focusMethod+
+	+canvasElementMethod+
+	+path2dBuild+
+	+pathBuildOp+
+
+%%% --- Build & fill a path ---
+
+buildPath :=
+	!ctx!.beginPath(); %repeat%(+pathBuildOp+, " ") !ctx!.fill();
+	!ctx!.beginPath(); %repeat%(+pathBuildOp+, " ") !ctx!.stroke();
+	!ctx!.beginPath(); %repeat%(+pathBuildOp+, " ") !ctx!.fill("+fillRule+");
+	!ctx!.beginPath(); %repeat%(+pathBuildOp+, " ") !ctx!.clip();
+
+%%% --- Complex flows ---
+
+complexFlow :=
+	!ctx!.save(); +setAttributes+ +buildPath+ !ctx!.restore();
+	!ctx!.save(); +transformMethod+ +rectMethod+ !ctx!.restore();
+	!ctx!.save(); +fillStrokeAttr+ +textStyleAttr+ +textMethod+ !ctx!.restore();
+	!ctx!.save(); +filterAttr+ +drawImageMethod+ !ctx!.restore();
+	!ctx!.save(); +shadowAttr+ +rectMethod+ !ctx!.restore();
+	!ctx!.save(); +compositingAttr+ +drawImageMethod+ !ctx!.restore();
+	!ctx!.save(); +lineStyleAttr+ +buildPath+ !ctx!.restore();
+
+%%% --- OffscreenCanvas flow ---
+
+offscreenFlow :=
+	+offscreenMethod+;
+	+bitmapRendererMethod+;
+	+createImageBitmapCall+
+
+%%% --- Top-level Canvas2D operation ---
 
 Canvas2D :=
-	+canvasAttributes+
-	+contextAttributes+
-	+contextMethods+
-	+Gecko_contextAttributes+
-	+Gecko_contextMethods+
-	+textMetricReadAttributes+;
-%%%	+WebKit_contextAttributes+
-%%%	+Blink_contextMethods+
+	+setAttributes+
+	+callMethod+
+	+buildPath+
+	+complexFlow+
+	+textMetricRead+;
+	+offscreenFlow+
 
-wrapper :=
-	try { +Canvas2D+ } catch(e) {}
-
-%%% ###########################################################################
+%%% =========================================================================
+%%% Variable Section — object construction
+%%% =========================================================================
 
 %section% := variable
 
-context :=
-	canvas=document.createElement("canvas"); (document.body || document.documentElement).appendChild(canvas); @context@=canvas.getContext('2d');
-	canvas=document.createElement("canvas"); (document.body || document.documentElement).appendChild(canvas); @context@=canvas.getContext('2d', +Canvas2DContextAttributes+);
+ctx :=
+	c = document.createElement("canvas"); c.width = +dimension+; c.height = +dimension+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("2d");
+	c = document.createElement("canvas"); c.width = +dimension+; c.height = +dimension+; (document.body || document.documentElement).appendChild(c); @ = c.getContext("2d", +contextOptions+);
 
-imageElement :=
-	x=document.createElement("img"); x.src="file://%uri%(images)"; @imageElement@=x;
-
-dash_array :=
-%%% Prevent static values in the grammar by using undefiend.js library functions.
-	x=new Array(%range%(0-32)); for(var i=0; i<x.length; i++) { x[i]=Random.pick([0,1]); }; @dash_array@=x;
-
-currentTransform_array :=
-	x=new Array(6); for(var i=0; i<x.length; i++){ x[i]=i*+common:number+; }; @currentTransform_array@=x;
-
-currentTransformInverse_array :=
-	x=new Array(6); for(var i=0; i<x.length; i++) { x[i]=i*+common:number+; }; @currentTransformInverse_array@=x;
-
-canvasGradient :=
-	@canvasGradient@=!context!.createRadialGradient(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
-
-canvasPattern :=
-	@canvasPattern@=!context!.createPattern(!context!.canvas, +createPattern_params+);
-
-imageData :=
-	@imageData@=!context!.getImageData(+common:number+, +common:number+, +common:number+, +common:number+);
-	@imageData@=!context!.createImageData(!imageData!);
-	@imageData@=!context!.createImageData(+common:number+, +common:number+);
-
-textMetrics :=
-	@textMetrics@=!context!.measureText("+common:text+");
-
-path2D :=
-%%%% Todo: http://www.w3.org/TR/SVGTiny12/paths.html#PathDataBNF
-	@path2D@=new Path2D("M100,0L200,0L200,100L100,100z");
-
-hitRegion :=
-	@hitRegion@=+hitRegionOptions+;
+imgSrc :=
+	img = new Image(); img.width = +dimension+; img.height = +dimension+; @ = img;
+	@ = !ctx!.canvas;
+	@ = document.createElement("canvas");
+	@ = !offscreen!;
+	vid = document.createElement("video"); vid.width = +dimension+; vid.height = +dimension+; @ = vid;
 
 linearGradient :=
-	@linearGradient@=!context!.createLinearGradient(+common:number+, +common:number+, +common:number+, +common:number+);
-	@linearGradient@=!context!.createLinearGradient(+common:number+, +common:number+, +common:number+, +common:number+, +common:number+, +common:number+);
+	@ = !ctx!.createLinearGradient(+coord+, +coord+, +coord+, +coord+);
 
-%%% ###########################################################################
+radialGradient :=
+	@ = !ctx!.createRadialGradient(+coord+, +coord+, +radius+, +coord+, +coord+, +radius+);
 
-%section% := variance
+conicGradient :=
+	@ = !ctx!.createConicGradient(+angle+, +coord+, +coord+);
+
+pattern :=
+	@ = !ctx!.createPattern(!imgSrc!, "+repetition+");
+
+imageData :=
+	@ = !ctx!.createImageData(+dimension+, +dimension+);
+	@ = !ctx!.createImageData(+dimension+, +dimension+, +imageDataSettings+);
+	@ = !ctx!.getImageData(+coord+, +coord+, +dimension+, +dimension+);
+	@ = !ctx!.getImageData(+coord+, +coord+, +dimension+, +dimension+, +imageDataSettings+);
+	@ = !ctx!.createImageData(!imageData!);
+
+path2d :=
+	@ = new Path2D();
+	@ = new Path2D("+svgPathData+");
+	@ = new Path2D(!path2d!);
+
+textMetrics :=
+	@ = !ctx!.measureText("+common:text+");
+
+offscreen :=
+	@ = new OffscreenCanvas(+dimension+, +dimension+);
+	@ = !ctx!.canvas.transferControlToOffscreen();
+
+bitmapCtx :=
+	bc = document.createElement("canvas"); bc.width = +dimension+; bc.height = +dimension+; (document.body || document.documentElement).appendChild(bc); @ = bc.getContext("bitmaprenderer");
+
+imageBitmap :=
+	@ = !offscreen!.transferToImageBitmap();
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
 
 main :=
 	+Canvas2D+
-%%%	setInterval(function(){\n  %repeat%(+wrapper+, "\n  ")\n}, 0);
-

@@ -1,0 +1,973 @@
+%%% Web Audio API 1.1 Grammar
+%%% W3C First Public Working Draft, 5 November 2024
+%%% https://www.w3.org/TR/webaudio/
+%%%
+%%% Covers every interface from the spec:
+%%%   BaseAudioContext, AudioContext, OfflineAudioContext,
+%%%   AudioNode, AudioParam, AudioScheduledSourceNode,
+%%%   AnalyserNode, AudioBufferSourceNode, AudioBuffer,
+%%%   AudioDestinationNode, AudioListener,
+%%%   BiquadFilterNode, ChannelMergerNode, ChannelSplitterNode,
+%%%   ConstantSourceNode, ConvolverNode, DelayNode,
+%%%   DynamicsCompressorNode, GainNode, IIRFilterNode,
+%%%   MediaElementAudioSourceNode, MediaStreamAudioSourceNode,
+%%%   MediaStreamTrackAudioSourceNode, MediaStreamAudioDestinationNode,
+%%%   OscillatorNode, PannerNode, PeriodicWave,
+%%%   StereoPannerNode, WaveShaperNode,
+%%%   AudioWorkletNode, AudioRenderCapacity
+
+%require% common
+
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 20
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+
+%%% =========================================================================
+%%% Value Section — all building blocks and operations
+%%% =========================================================================
+
+%section% := value
+
+%%% --- AudioContextOptions (§1.2.5) ---
+
+sampleRate :=
+	8000
+	11025
+	16000
+	22050
+	32000
+	44100
+	48000
+	88200
+	96000
+	192000
+	384000
+	0
+	1
+	-1
+	+common:number+
+
+latencyHint :=
+	"interactive"
+	"balanced"
+	"playback"
+	0.0
+	0.001
+	0.01
+	0.05
+	0.1
+	0.5
+	1.0
+	+common:number+
+
+renderSizeHint :=
+	"default"
+	"hardware"
+	128
+	256
+	512
+	+common:number+
+
+sinkId :=
+	""
+	"none"
+	{type: "none"}
+
+contextOptions :=
+	{sampleRate: +sampleRate+}
+	{latencyHint: +latencyHint+}
+	{sampleRate: +sampleRate+, latencyHint: +latencyHint+}
+	{sampleRate: +sampleRate+, latencyHint: +latencyHint+, renderSizeHint: +renderSizeHint+}
+	{sinkId: +sinkId+}
+	{sampleRate: +sampleRate+, sinkId: +sinkId+}
+	{}
+
+%%% --- OfflineAudioContextOptions (§1.3.4) ---
+
+offlineOptions :=
+	{numberOfChannels: +channelCount+, length: +bufferLength+, sampleRate: +sampleRate+}
+	{numberOfChannels: +channelCount+, length: +bufferLength+, sampleRate: +sampleRate+, renderSizeHint: +renderSizeHint+}
+
+%%% --- ChannelCountMode / ChannelInterpretation (§1.5.1) ---
+
+channelCount :=
+	1
+	2
+	4
+	6
+	8
+	%range%(1-32)
+	0
+	-1
+	+common:number+
+
+channelCountMode :=
+	"max"
+	"clamped-max"
+	"explicit"
+
+channelInterpretation :=
+	"speakers"
+	"discrete"
+
+%%% --- AudioBuffer (§1.4) ---
+
+bufferLength :=
+	1
+	128
+	256
+	512
+	1024
+	2048
+	4096
+	8192
+	16384
+	32768
+	44100
+	48000
+	%range%(1-65536)
+	0
+	+common:number+
+
+bufferChannels :=
+	1
+	2
+	%range%(1-8)
+	0
+	32
+
+%%% --- AudioParam values and time (§1.6) ---
+
+audioTime :=
+	0
+	0.0
+	0.001
+	0.01
+	0.05
+	0.1
+	0.25
+	0.5
+	1.0
+	2.0
+	5.0
+	10.0
+	+common:number+
+	!ctx!.currentTime
+	!ctx!.currentTime + 0.1
+	!ctx!.currentTime + 0.5
+	!ctx!.currentTime + 1.0
+	!ctx!.currentTime + +common:number+
+
+paramValue :=
+	0
+	0.0
+	0.0001
+	0.001
+	0.01
+	0.1
+	0.5
+	1.0
+	2.0
+	10.0
+	100.0
+	1000.0
+	-1.0
+	-0.5
+	3.4028235e38
+	-3.4028235e38
+	+common:number+
+
+%%% --- AutomationRate (§1.6) ---
+
+automationRate :=
+	"a-rate"
+	"k-rate"
+
+%%% --- AudioParam automation methods (§1.6.2) ---
+
+paramAutomation :=
+	.setValueAtTime(+paramValue+, +audioTime+)
+	.linearRampToValueAtTime(+paramValue+, +audioTime+)
+	.exponentialRampToValueAtTime(+paramValue+, +audioTime+)
+	.setTargetAtTime(+paramValue+, +audioTime+, +paramValue+)
+	.setValueCurveAtTime(new Float32Array([+paramValue+, +paramValue+, +paramValue+]), +audioTime+, +paramValue+)
+	.cancelScheduledValues(+audioTime+)
+	.cancelAndHoldAtTime(+audioTime+)
+	.value = +paramValue+
+	.automationRate = +automationRate+
+
+%%% --- OscillatorType (§1.26) ---
+
+oscillatorType :=
+	"sine"
+	"square"
+	"sawtooth"
+	"triangle"
+	"custom"
+
+%%% --- Frequencies / detune ---
+
+frequency :=
+	0
+	20
+	55
+	110
+	220
+	261.63
+	440
+	880
+	1000
+	2000
+	4000
+	8000
+	16000
+	20000
+	22050
+	-440
+	+common:number+
+
+detune :=
+	0
+	-100
+	100
+	-1200
+	1200
+	-2400
+	2400
+	+common:number+
+
+%%% --- BiquadFilterType (§1.13) ---
+
+biquadType :=
+	"lowpass"
+	"highpass"
+	"bandpass"
+	"lowshelf"
+	"highshelf"
+	"peaking"
+	"notch"
+	"allpass"
+
+%%% --- PanningModelType / DistanceModelType (§1.27) ---
+
+panningModel :=
+	"equalpower"
+	"HRTF"
+
+distanceModel :=
+	"linear"
+	"inverse"
+	"exponential"
+
+pannerPosition :=
+	0
+	1
+	-1
+	0.5
+	-0.5
+	10
+	-10
+	100
+	+common:number+
+
+pannerOrientation :=
+	0
+	1
+	-1
+	0.5
+	+common:number+
+
+coneAngle :=
+	0
+	30
+	45
+	60
+	90
+	120
+	180
+	270
+	360
+	+common:number+
+
+%%% --- OverSampleType (§1.31) ---
+
+oversample :=
+	"none"
+	"2x"
+	"4x"
+
+%%% --- DynamicsCompressor param ranges (§1.19.2) ---
+
+compressorThreshold :=
+	-100
+	-50
+	-24
+	-12
+	-6
+	0
+	+common:number+
+
+compressorKnee :=
+	0
+	10
+	20
+	30
+	40
+	+common:number+
+
+compressorRatio :=
+	1
+	2
+	4
+	8
+	12
+	20
+	+common:number+
+
+compressorAttack :=
+	0
+	0.001
+	0.003
+	0.01
+	0.1
+	1
+	+common:number+
+
+compressorRelease :=
+	0
+	0.01
+	0.05
+	0.1
+	0.25
+	1
+	+common:number+
+
+%%% --- AnalyserNode params (§1.8.2) ---
+
+fftSize :=
+	32
+	64
+	128
+	256
+	512
+	1024
+	2048
+	4096
+	8192
+	16384
+	32768
+	0
+	1
+	7
+	+common:number+
+
+smoothingTimeConstant :=
+	0
+	0.1
+	0.5
+	0.8
+	0.9
+	0.95
+	1.0
+	-0.1
+	1.5
+	+common:number+
+
+minDecibels :=
+	-100
+	-80
+	-60
+	-40
+	-20
+	0
+	+common:number+
+
+maxDecibels :=
+	-30
+	-10
+	0
+	10
+	20
+	+common:number+
+
+%%% --- DelayNode (§1.18) ---
+
+maxDelayTime :=
+	0.001
+	0.01
+	0.1
+	0.5
+	1.0
+	5.0
+	10.0
+	30.0
+	60.0
+	179.0
+	180.0
+	0
+	-1
+	+common:number+
+
+%%% --- StereoPannerNode (§1.30.2) ---
+
+panValue :=
+	-1
+	-0.5
+	0
+	0.5
+	1
+	-2
+	2
+	+common:number+
+
+%%% --- ConvolverNode (§1.17.2) ---
+
+convolverNormalize :=
+	+common:bool+
+
+%%% --- PeriodicWave (§1.28) ---
+
+periodicWaveReal :=
+	new Float32Array([0, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+, +paramValue+, +paramValue+])
+	new Float32Array(%range%(2-4096))
+
+periodicWaveImag :=
+	new Float32Array([0, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+, +paramValue+])
+	new Float32Array([0, +paramValue+, +paramValue+, +paramValue+, +paramValue+])
+	new Float32Array(%range%(2-4096))
+
+periodicWaveConstraints :=
+	{disableNormalization: +common:bool+}
+	{}
+
+%%% --- IIRFilterNode coefficients (§1.21) ---
+
+iirFeedforward :=
+	[+paramValue+]
+	[+paramValue+, +paramValue+]
+	[+paramValue+, +paramValue+, +paramValue+]
+	[0, 0, 0]
+	[1, -2, 1]
+	[0.0002029286, 0.0004058572, 0.0002029286]
+
+iirFeedback :=
+	[1]
+	[1, +paramValue+]
+	[1, +paramValue+, +paramValue+]
+	[1, -1.9561, 0.9565]
+	[1, 0, 0]
+
+%%% --- Node connection targets ---
+
+connectTarget :=
+	!osc!
+	!gain!
+	!biquad!
+	!delay!
+	!compressor!
+	!shaper!
+	!convolver!
+	!panner!
+	!stereoPanner!
+	!analyser!
+	!splitter!
+	!merger!
+	!constant!
+	!iir!
+	!ctx!.destination
+
+connectOutput :=
+	%optional%(, %range%(0-7), 0.3)
+
+connectInput :=
+	%optional%(, %range%(0-7), 0.3)
+
+%%% --- WaveShaperNode curve (§1.31.2) ---
+
+waveShaperCurve :=
+	new Float32Array([+paramValue+, +paramValue+])
+	new Float32Array([+paramValue+, +paramValue+, +paramValue+])
+	new Float32Array([+paramValue+, 0, +paramValue+])
+	new Float32Array(256).map((_, i, a) => 2 * i / a.length - 1)
+	new Float32Array(256).fill(0)
+	new Float32Array(2)
+	new Float32Array(1)
+	null
+
+%%% --- AudioBuffer data ---
+
+bufferData :=
+	new Float32Array(+bufferLength+)
+	new Float32Array([+paramValue+, +paramValue+, +paramValue+, +paramValue+])
+
+%%% --- Constructor option dictionaries (from spec IDL) ---
+
+oscillatorOptions :=
+	{type: +oscillatorType+, frequency: +frequency+, detune: +detune+}
+	{type: +oscillatorType+, frequency: +frequency+}
+	{type: +oscillatorType+}
+	{frequency: +frequency+, detune: +detune+, channelCount: +channelCount+}
+	{}
+
+gainOptions :=
+	{gain: +paramValue+}
+	{gain: +paramValue+, channelCount: +channelCount+}
+	{}
+
+biquadOptions :=
+	{type: +biquadType+, frequency: +frequency+, Q: +paramValue+, gain: +paramValue+}
+	{type: +biquadType+, frequency: +frequency+, detune: +detune+}
+	{type: +biquadType+}
+	{}
+
+delayOptions :=
+	{maxDelayTime: +maxDelayTime+, delayTime: +paramValue+}
+	{maxDelayTime: +maxDelayTime+}
+	{}
+
+compressorOptions :=
+	{threshold: +compressorThreshold+, knee: +compressorKnee+, ratio: +compressorRatio+, attack: +compressorAttack+, release: +compressorRelease+}
+	{threshold: +compressorThreshold+, ratio: +compressorRatio+}
+	{}
+
+analyserOptions :=
+	{fftSize: +fftSize+, smoothingTimeConstant: +smoothingTimeConstant+}
+	{fftSize: +fftSize+, minDecibels: +minDecibels+, maxDecibels: +maxDecibels+}
+	{fftSize: +fftSize+}
+	{}
+
+pannerOptions :=
+	{panningModel: +panningModel+, distanceModel: +distanceModel+}
+	{panningModel: +panningModel+, positionX: +pannerPosition+, positionY: +pannerPosition+, positionZ: +pannerPosition+}
+	{coneInnerAngle: +coneAngle+, coneOuterAngle: +coneAngle+, coneOuterGain: +paramValue+}
+	{panningModel: +panningModel+, distanceModel: +distanceModel+, positionX: +pannerPosition+, positionY: +pannerPosition+, positionZ: +pannerPosition+, orientationX: +pannerOrientation+, orientationY: +pannerOrientation+, orientationZ: +pannerOrientation+, refDistance: +paramValue+, maxDistance: +paramValue+, rolloffFactor: +paramValue+, coneInnerAngle: +coneAngle+, coneOuterAngle: +coneAngle+, coneOuterGain: +paramValue+}
+	{}
+
+stereoPannerOptions :=
+	{pan: +panValue+}
+	{}
+
+constantSourceOptions :=
+	{offset: +paramValue+}
+	{}
+
+%%% --- AudioContext operations (§1.2) ---
+
+contextOp :=
+	await !ctx!.resume()
+	await !ctx!.suspend()
+	await !ctx!.close()
+	!ctx!.currentTime
+	!ctx!.sampleRate
+	!ctx!.state
+	!ctx!.baseLatency
+	!ctx!.outputLatency
+	!ctx!.destination.maxChannelCount
+	!ctx!.destination.channelCount = +channelCount+
+	!ctx!.getOutputTimestamp()
+	!ctx!.createPeriodicWave(+periodicWaveReal+, +periodicWaveImag+, +periodicWaveConstraints+)
+	!ctx!.createMediaStreamDestination()
+
+%%% --- AudioListener (§1.11) ---
+
+listenerOp :=
+	!ctx!.listener.positionX.value = +pannerPosition+
+	!ctx!.listener.positionY.value = +pannerPosition+
+	!ctx!.listener.positionZ.value = +pannerPosition+
+	!ctx!.listener.forwardX.value = +pannerOrientation+
+	!ctx!.listener.forwardY.value = +pannerOrientation+
+	!ctx!.listener.forwardZ.value = +pannerOrientation+
+	!ctx!.listener.upX.value = +pannerOrientation+
+	!ctx!.listener.upY.value = +pannerOrientation+
+	!ctx!.listener.upZ.value = +pannerOrientation+
+	!ctx!.listener.positionX+paramAutomation+
+	!ctx!.listener.positionY+paramAutomation+
+	!ctx!.listener.positionZ+paramAutomation+
+	!ctx!.listener.forwardX+paramAutomation+
+	!ctx!.listener.forwardZ+paramAutomation+
+	!ctx!.listener.setPosition(+pannerPosition+, +pannerPosition+, +pannerPosition+)
+	!ctx!.listener.setOrientation(+pannerOrientation+, +pannerOrientation+, +pannerOrientation+, +pannerOrientation+, +pannerOrientation+, +pannerOrientation+)
+
+%%% --- OscillatorNode (§1.26) ---
+
+oscillatorOp :=
+	!osc!.type = +oscillatorType+
+	!osc!.frequency.value = +frequency+
+	!osc!.frequency+paramAutomation+
+	!osc!.detune.value = +detune+
+	!osc!.detune+paramAutomation+
+	!osc!.setPeriodicWave(!ctx!.createPeriodicWave(+periodicWaveReal+, +periodicWaveImag+, +periodicWaveConstraints+))
+	!osc!.start(+audioTime+)
+	!osc!.stop(+audioTime+)
+	!osc!.start()
+	!osc!.stop()
+	!osc!.onended = function() { }
+	!osc!.connect(+connectTarget+)
+	!osc!.disconnect()
+	!osc!.disconnect(+connectTarget+)
+	!osc!.channelCount = +channelCount+
+	!osc!.channelCountMode = +channelCountMode+
+	!osc!.channelInterpretation = +channelInterpretation+
+	!osc!.numberOfInputs
+	!osc!.numberOfOutputs
+	!osc!.context
+
+%%% --- GainNode (§1.20) ---
+
+gainOp :=
+	!gain!.gain.value = +paramValue+
+	!gain!.gain+paramAutomation+
+	!gain!.connect(+connectTarget+)
+	!gain!.disconnect()
+	!gain!.disconnect(+connectTarget+)
+	!gain!.channelCount = +channelCount+
+	!gain!.channelCountMode = +channelCountMode+
+
+%%% --- BiquadFilterNode (§1.13) ---
+
+biquadOp :=
+	!biquad!.type = +biquadType+
+	!biquad!.frequency.value = +frequency+
+	!biquad!.frequency+paramAutomation+
+	!biquad!.Q.value = +paramValue+
+	!biquad!.Q+paramAutomation+
+	!biquad!.gain.value = +paramValue+
+	!biquad!.gain+paramAutomation+
+	!biquad!.detune.value = +detune+
+	!biquad!.detune+paramAutomation+
+	!biquad!.getFrequencyResponse(new Float32Array([+frequency+, +frequency+, +frequency+]), new Float32Array(3), new Float32Array(3))
+	!biquad!.connect(+connectTarget+)
+	!biquad!.disconnect()
+
+%%% --- DelayNode (§1.18) ---
+
+delayOp :=
+	!delay!.delayTime.value = +paramValue+
+	!delay!.delayTime+paramAutomation+
+	!delay!.connect(+connectTarget+)
+	!delay!.disconnect()
+
+%%% --- DynamicsCompressorNode (§1.19) ---
+
+compressorOp :=
+	!compressor!.threshold.value = +compressorThreshold+
+	!compressor!.threshold+paramAutomation+
+	!compressor!.knee.value = +compressorKnee+
+	!compressor!.knee+paramAutomation+
+	!compressor!.ratio.value = +compressorRatio+
+	!compressor!.ratio+paramAutomation+
+	!compressor!.attack.value = +compressorAttack+
+	!compressor!.attack+paramAutomation+
+	!compressor!.release.value = +compressorRelease+
+	!compressor!.release+paramAutomation+
+	!compressor!.reduction
+	!compressor!.connect(+connectTarget+)
+	!compressor!.disconnect()
+	!compressor!.channelCount = +channelCount+
+
+%%% --- WaveShaperNode (§1.31) ---
+
+shaperOp :=
+	!shaper!.curve = +waveShaperCurve+
+	!shaper!.oversample = +oversample+
+	!shaper!.connect(+connectTarget+)
+	!shaper!.disconnect()
+
+%%% --- ConvolverNode (§1.17) ---
+
+convolverOp :=
+	!convolver!.buffer = !buf!
+	!convolver!.buffer = null
+	!convolver!.normalize = +convolverNormalize+
+	!convolver!.connect(+connectTarget+)
+	!convolver!.disconnect()
+
+%%% --- PannerNode (§1.27) ---
+
+pannerOp :=
+	!panner!.panningModel = +panningModel+
+	!panner!.distanceModel = +distanceModel+
+	!panner!.positionX.value = +pannerPosition+
+	!panner!.positionX+paramAutomation+
+	!panner!.positionY.value = +pannerPosition+
+	!panner!.positionY+paramAutomation+
+	!panner!.positionZ.value = +pannerPosition+
+	!panner!.positionZ+paramAutomation+
+	!panner!.orientationX.value = +pannerOrientation+
+	!panner!.orientationX+paramAutomation+
+	!panner!.orientationY.value = +pannerOrientation+
+	!panner!.orientationY+paramAutomation+
+	!panner!.orientationZ.value = +pannerOrientation+
+	!panner!.orientationZ+paramAutomation+
+	!panner!.refDistance = +paramValue+
+	!panner!.maxDistance = +paramValue+
+	!panner!.rolloffFactor = +paramValue+
+	!panner!.coneInnerAngle = +coneAngle+
+	!panner!.coneOuterAngle = +coneAngle+
+	!panner!.coneOuterGain = +paramValue+
+	!panner!.setPosition(+pannerPosition+, +pannerPosition+, +pannerPosition+)
+	!panner!.setOrientation(+pannerOrientation+, +pannerOrientation+, +pannerOrientation+)
+	!panner!.connect(+connectTarget+)
+	!panner!.disconnect()
+	!panner!.channelCount = +channelCount+
+
+%%% --- StereoPannerNode (§1.30) ---
+
+stereoPannerOp :=
+	!stereoPanner!.pan.value = +panValue+
+	!stereoPanner!.pan+paramAutomation+
+	!stereoPanner!.connect(+connectTarget+)
+	!stereoPanner!.disconnect()
+	!stereoPanner!.channelCount = +channelCount+
+
+%%% --- AnalyserNode (§1.8) ---
+
+analyserOp :=
+	!analyser!.fftSize = +fftSize+
+	!analyser!.smoothingTimeConstant = +smoothingTimeConstant+
+	!analyser!.minDecibels = +minDecibels+
+	!analyser!.maxDecibels = +maxDecibels+
+	!analyser!.frequencyBinCount
+	!analyser!.getFloatFrequencyData(new Float32Array(!analyser!.frequencyBinCount))
+	!analyser!.getByteFrequencyData(new Uint8Array(!analyser!.frequencyBinCount))
+	!analyser!.getFloatTimeDomainData(new Float32Array(!analyser!.fftSize))
+	!analyser!.getByteTimeDomainData(new Uint8Array(!analyser!.fftSize))
+	!analyser!.connect(+connectTarget+)
+	!analyser!.disconnect()
+
+%%% --- ChannelSplitterNode / ChannelMergerNode (§1.14, §1.15) ---
+
+splitterOp :=
+	!splitter!.connect(+connectTarget++connectOutput++connectInput+)
+	!splitter!.disconnect()
+	!splitter!.numberOfOutputs
+
+mergerOp :=
+	!merger!.connect(+connectTarget+)
+	!merger!.disconnect()
+	!merger!.numberOfInputs
+
+%%% --- ConstantSourceNode (§1.16) ---
+
+constantOp :=
+	!constant!.offset.value = +paramValue+
+	!constant!.offset+paramAutomation+
+	!constant!.start(+audioTime+)
+	!constant!.stop(+audioTime+)
+	!constant!.start()
+	!constant!.stop()
+	!constant!.onended = function() { }
+	!constant!.connect(+connectTarget+)
+	!constant!.connect(+connectTarget+.gain || +connectTarget+.frequency || +connectTarget+.delayTime || +connectTarget+)
+	!constant!.disconnect()
+
+%%% --- IIRFilterNode (§1.21) ---
+
+iirOp :=
+	!iir!.getFrequencyResponse(new Float32Array([+frequency+, +frequency+, +frequency+]), new Float32Array(3), new Float32Array(3))
+	!iir!.connect(+connectTarget+)
+	!iir!.disconnect()
+
+%%% --- AudioBuffer (§1.4) ---
+
+bufferOp :=
+	!buf!.length
+	!buf!.duration
+	!buf!.sampleRate
+	!buf!.numberOfChannels
+	!buf!.getChannelData(%range%(0-7))
+	!buf!.copyFromChannel(new Float32Array(+bufferLength+), %range%(0-7))
+	!buf!.copyFromChannel(new Float32Array(+bufferLength+), %range%(0-7), %range%(0-1024))
+	!buf!.copyToChannel(new Float32Array([+paramValue+, +paramValue+, +paramValue+]), %range%(0-7))
+	!buf!.copyToChannel(+bufferData+, %range%(0-7), %range%(0-1024))
+
+%%% --- AudioBufferSourceNode (§1.9) ---
+
+bufSourceOp :=
+	!bufSource!.buffer = !buf!
+	!bufSource!.buffer = null
+	!bufSource!.loop = +common:bool+
+	!bufSource!.loopStart = +audioTime+
+	!bufSource!.loopEnd = +audioTime+
+	!bufSource!.playbackRate.value = +paramValue+
+	!bufSource!.playbackRate+paramAutomation+
+	!bufSource!.detune.value = +detune+
+	!bufSource!.detune+paramAutomation+
+	!bufSource!.start()
+	!bufSource!.start(+audioTime+)
+	!bufSource!.start(+audioTime+, +audioTime+)
+	!bufSource!.start(+audioTime+, +audioTime+, +audioTime+)
+	!bufSource!.stop()
+	!bufSource!.stop(+audioTime+)
+	!bufSource!.onended = function() { }
+	!bufSource!.connect(+connectTarget+)
+	!bufSource!.disconnect()
+
+%%% --- AudioNode channel config (§1.5.4) ---
+
+channelConfigOp :=
+	!gain!.channelCount = +channelCount+
+	!gain!.channelCountMode = +channelCountMode+
+	!gain!.channelInterpretation = +channelInterpretation+
+	!biquad!.channelCount = +channelCount+
+	!analyser!.channelCount = +channelCount+
+	!compressor!.channelCount = +channelCount+
+	!panner!.channelCount = +channelCount+
+	!delay!.channelCount = +channelCount+
+	!convolver!.channelCount = +channelCount+
+	!shaper!.channelCount = +channelCount+
+	!stereoPanner!.channelCount = +channelCount+
+
+%%% --- Complex routing patterns ---
+
+routingOp :=
+	!osc!.connect(!gain!).connect(!compressor!).connect(!ctx!.destination)
+	!osc!.connect(!biquad!).connect(!gain!).connect(!ctx!.destination)
+	!osc!.connect(!gain!); !gain!.connect(!analyser!); !gain!.connect(!ctx!.destination)
+	!osc!.connect(!panner!).connect(!ctx!.destination)
+	!osc!.connect(!delay!).connect(!gain!).connect(!ctx!.destination); !gain!.connect(!delay!)
+	!osc!.connect(!shaper!).connect(!stereoPanner!).connect(!ctx!.destination)
+	!bufSource!.connect(!convolver!).connect(!gain!).connect(!ctx!.destination)
+	!osc!.connect(!splitter!); !splitter!.connect(!merger!, 0, 0); !splitter!.connect(!merger!, 1, 1); !merger!.connect(!ctx!.destination)
+	!constant!.connect(!gain!.gain)
+	!osc!.connect(!biquad!.frequency)
+	!osc!.connect(!iir!).connect(!gain!).connect(!ctx!.destination)
+	!osc!.connect(!gain!, 0, 0); !gain!.connect(!compressor!); !compressor!.connect(!ctx!.destination)
+	!osc!.disconnect(!gain!); !osc!.connect(!biquad!)
+
+%%% --- Media source nodes (§1.22, §1.23, §1.24) ---
+
+mediaSourceOp :=
+	var _el = document.createElement("audio"); _el.src = "data:audio/wav;base64,UklGR"; !ctx!.createMediaElementSource(_el).connect(!gain!)
+	var _canvas = document.createElement("canvas"); var _cStream = _canvas.captureStream(30); !ctx!.createMediaStreamSource(_cStream).connect(!analyser!)
+	var _actx = new AudioContext(); var _osc2 = _actx.createOscillator(); var _dest = _actx.createMediaStreamDestination(); _osc2.connect(_dest); _osc2.start(); !ctx!.createMediaStreamSource(_dest.stream).connect(!gain!).connect(!ctx!.destination)
+	var _actx2 = new AudioContext(); var _osc3 = _actx2.createOscillator(); var _dest2 = _actx2.createMediaStreamDestination(); _osc3.connect(_dest2); _osc3.start(); !ctx!.createMediaStreamTrackSource(_dest2.stream.getTracks()[0]).connect(!analyser!)
+
+%%% --- OfflineAudioContext (§1.3) ---
+
+offlineOp :=
+	var _offOsc = !offlineCtx!.createOscillator(); var _offGain = !offlineCtx!.createGain(); _offOsc.connect(_offGain).connect(!offlineCtx!.destination); _offOsc.start(); !offlineCtx!.startRendering().then(function(buf) { })
+	var _offOsc2 = !offlineCtx!.createOscillator(); _offOsc2.connect(!offlineCtx!.destination); _offOsc2.start(); await !offlineCtx!.startRendering()
+	!offlineCtx!.length
+	!offlineCtx!.sampleRate
+	!offlineCtx!.oncomplete = function(e) { }
+	var _offOsc3 = new OscillatorNode(!offlineCtx!); var _offBq = new BiquadFilterNode(!offlineCtx!, +biquadOptions+); _offOsc3.connect(_offBq).connect(!offlineCtx!.destination); _offOsc3.start(); await !offlineCtx!.startRendering()
+
+%%% --- decodeAudioData (§1.1.2) ---
+
+decodeOp :=
+	!ctx!.decodeAudioData(new ArrayBuffer(+bufferLength+)).then(function(decoded) { !bufSource!.buffer = decoded; })
+	!ctx!.decodeAudioData(new ArrayBuffer(%range%(0-100))).catch(function(e) { })
+	!ctx!.decodeAudioData(new ArrayBuffer(0))
+
+%%% =========================================================================
+%%% Variable Section — stateful object constructors
+%%% =========================================================================
+
+%section% := variable
+
+ctx :=
+	@ = new AudioContext(+contextOptions+);
+
+offlineCtx :=
+	@ = new OfflineAudioContext(+offlineOptions+);
+
+osc :=
+	@ = !ctx!.createOscillator();
+	@ = new OscillatorNode(!ctx!, +oscillatorOptions+);
+
+gain :=
+	@ = !ctx!.createGain();
+	@ = new GainNode(!ctx!, +gainOptions+);
+
+biquad :=
+	@ = !ctx!.createBiquadFilter();
+	@ = new BiquadFilterNode(!ctx!, +biquadOptions+);
+
+delay :=
+	@ = !ctx!.createDelay(+maxDelayTime+);
+	@ = new DelayNode(!ctx!, +delayOptions+);
+
+compressor :=
+	@ = !ctx!.createDynamicsCompressor();
+	@ = new DynamicsCompressorNode(!ctx!, +compressorOptions+);
+
+shaper :=
+	@ = !ctx!.createWaveShaper();
+	@ = new WaveShaperNode(!ctx!);
+
+convolver :=
+	@ = !ctx!.createConvolver();
+	@ = new ConvolverNode(!ctx!);
+
+panner :=
+	@ = !ctx!.createPanner();
+	@ = new PannerNode(!ctx!, +pannerOptions+);
+
+stereoPanner :=
+	@ = !ctx!.createStereoPanner();
+	@ = new StereoPannerNode(!ctx!, +stereoPannerOptions+);
+
+analyser :=
+	@ = !ctx!.createAnalyser();
+	@ = new AnalyserNode(!ctx!, +analyserOptions+);
+
+splitter :=
+	@ = !ctx!.createChannelSplitter(+channelCount+);
+	@ = new ChannelSplitterNode(!ctx!, {numberOfOutputs: +channelCount+});
+
+merger :=
+	@ = !ctx!.createChannelMerger(+channelCount+);
+	@ = new ChannelMergerNode(!ctx!, {numberOfInputs: +channelCount+});
+
+constant :=
+	@ = !ctx!.createConstantSource();
+	@ = new ConstantSourceNode(!ctx!, +constantSourceOptions+);
+
+iir :=
+	@ = !ctx!.createIIRFilter(+iirFeedforward+, +iirFeedback+);
+	@ = new IIRFilterNode(!ctx!, {feedforward: +iirFeedforward+, feedback: +iirFeedback+});
+
+buf :=
+	@ = !ctx!.createBuffer(+bufferChannels+, +bufferLength+, +sampleRate+);
+	@ = new AudioBuffer({numberOfChannels: +bufferChannels+, length: +bufferLength+, sampleRate: +sampleRate+});
+
+bufSource :=
+	@ = !ctx!.createBufferSource();
+	@ = new AudioBufferSourceNode(!ctx!, {buffer: !buf!, loop: +common:bool+, playbackRate: +paramValue+, detune: +detune+, loopStart: +audioTime+, loopEnd: +audioTime+});
+
+%%% =========================================================================
+%%% Output Section — entry-point rules
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+contextOp+;
+	+listenerOp+;
+	+oscillatorOp+;
+	+gainOp+;
+	+biquadOp+;
+	+delayOp+;
+	+compressorOp+;
+	+shaperOp+;
+	+convolverOp+;
+	+pannerOp+;
+	+stereoPannerOp+;
+	+analyserOp+;
+	+splitterOp+;
+	+mergerOp+;
+	+constantOp+;
+	+iirOp+;
+	+bufferOp+;
+	+bufSourceOp+;
+	+channelConfigOp+;
+	+routingOp+;
+	+mediaSourceOp+;
+	+offlineOp+;
+	+decodeOp+;

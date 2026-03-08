@@ -1,0 +1,821 @@
+%%% IndexedDB API 3.0 Grammar
+%%% Specification: W3C Working Draft, August 2025
+%%% https://www.w3.org/TR/IndexedDB-3/
+%%%
+%%% Covers: IDBFactory, IDBDatabase, IDBTransaction, IDBObjectStore,
+%%% IDBIndex, IDBKeyRange, IDBCursor, IDBCursorWithValue,
+%%% key types, cursor directions, transaction modes, durability hints,
+%%% version upgrades, event-driven async flows, concurrent transactions
+
+%require% common
+
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 20
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+%const% MAX_REPEAT_POWER := 3
+
+%%% =========================================================================
+%%% Value Section
+%%% =========================================================================
+
+%section% := value
+
+%%% --- Database / store / index names ---
+
+dbName :=
+	"testdb"
+	"db_" + %range%(0-99)
+	"fuzzerDB"
+	"indexedDB_test"
+	"myDatabase"
+	""
+	"a"
+	"\x00db"
+	"db with spaces"
+
+storeName :=
+	"store1"
+	"store2"
+	"objectStore"
+	"records"
+	"data"
+	"items"
+	"people"
+	"logs"
+	"empty"
+	"s_" + %range%(0-20)
+
+indexName :=
+	"idx1"
+	"idx2"
+	"nameIndex"
+	"ageIndex"
+	"emailIndex"
+	"compound_idx"
+	"multiIdx"
+	"i_" + %range%(0-20)
+
+%%% --- Key paths ---
+
+keyPath :=
+	"id"
+	"key"
+	"name"
+	"email"
+	"timestamp"
+	"data.id"
+	"nested.deep.key"
+	"a"
+	""
+
+keyPathArray :=
+	[+keyPath+]
+	[+keyPath+, +keyPath+]
+	[+keyPath+, +keyPath+, +keyPath+]
+	["a", "b"]
+	["name", "email"]
+
+keyPathOrArray :=
+	+keyPath+
+	+keyPathArray+
+
+%%% --- Key values ---
+
+smallInt :=
+	%range%(0-100)
+
+largeInt :=
+	%range%(0-2147483647)
+
+negativeInt :=
+	-%range%(1-1000)
+
+floatVal :=
+	0.0
+	0.5
+	1.0
+	-1.5
+	3.14159
+	%range%(0-999).%range%(0-99)
+	Infinity
+	-Infinity
+
+numberKey :=
+	+smallInt+
+	+largeInt+
+	+negativeInt+
+	+floatVal+
+	0
+	1
+	-1
+
+stringKey :=
+	"alpha"
+	"beta"
+	"gamma"
+	""
+	"key_" + %range%(0-999)
+	"zzzzz"
+	"\u0000"
+	"\uffff"
+	"abc"
+	"a long string with some content for testing"
+
+dateKey :=
+	new Date()
+	new Date(0)
+	new Date(%range%(946684800000-1893456000000))
+	new Date("2025-08-01")
+	new Date("1970-01-01")
+
+arrayBufferKey :=
+	new Uint8Array([%repeat%(%range%(0-255), ", ")]).buffer
+	new ArrayBuffer(%range%(0-64))
+	new Uint8Array([1, 2, 3]).buffer
+
+arrayKey :=
+	[+numberKey+]
+	[+numberKey+, +numberKey+]
+	[+stringKey+, +numberKey+]
+	[+numberKey+, +stringKey+, +numberKey+]
+	[[+numberKey+], +numberKey+]
+	[]
+
+idbKey :=
+	+numberKey+
+	+stringKey+
+	+dateKey+
+	+arrayBufferKey+
+	+arrayKey+
+
+%%% --- Record values ---
+
+simpleValue :=
+	+numberKey+
+	+stringKey+
+	+common:bool+
+	null
+	undefined
+
+objectValue :=
+	{id: +smallInt+, name: +stringKey+, age: %range%(1-120)}
+	{id: +smallInt+, data: [%repeat%(+smallInt+, ", ")]}
+	{id: +smallInt+, email: "user@test.com", active: +common:bool+}
+	{key: +smallInt+, nested: {a: +smallInt+, b: +stringKey+}}
+	{id: +smallInt+, timestamp: +dateKey+, tags: [+stringKey+, +stringKey+]}
+	{id: +smallInt+, name: "item_" + %range%(0-999), value: +floatVal+}
+	{a: 1, b: 2, c: 3, d: 4, e: 5}
+	{id: +smallInt+, blob: new Blob([+stringKey+], {type: "text/plain"})}
+	{id: +smallInt+, buffer: +arrayBufferKey+}
+	{id: +smallInt+}
+
+arrayValue :=
+	[%repeat%(+smallInt+, ", ")]
+	[+stringKey+, +numberKey+, +common:bool+]
+	[+objectValue+, +objectValue+]
+	[]
+	[1, "two", 3, null, true]
+
+recordValue :=
+	+simpleValue+
+	+objectValue+
+	+arrayValue+
+	+dateKey+
+	new Blob([+stringKey+], {type: "text/plain"})
+	new Blob([JSON.stringify(+objectValue+)], {type: "application/json"})
+
+%%% --- Object store options ---
+
+autoIncrementOpt :=
+	autoIncrement: +common:bool+
+
+keyPathOpt :=
+	keyPath: +keyPath+
+	keyPath: +keyPathArray+
+	keyPath: null
+
+storeOptions :=
+	{+keyPathOpt+, +autoIncrementOpt+}
+	{+keyPathOpt+}
+	{+autoIncrementOpt+}
+	{keyPath: "id", autoIncrement: +common:bool+}
+	{autoIncrement: true}
+	{}
+
+%%% -- Index options ---
+
+indexUniqueOpt :=
+	unique: +common:bool+
+
+indexMultiEntryOpt :=
+	multiEntry: +common:bool+
+
+indexOptions :=
+	{+indexUniqueOpt+, +indexMultiEntryOpt+}
+	{+indexUniqueOpt+}
+	{+indexMultiEntryOpt+}
+	{unique: false, multiEntry: false}
+	{unique: true, multiEntry: false}
+	{unique: false, multiEntry: true}
+	{}
+
+%%% --- Transaction modes and options ---
+
+txMode :=
+	"readonly"
+	"readwrite"
+
+txDurability :=
+	"default"
+	"strict"
+	"relaxed"
+
+txOptions :=
+	{durability: +txDurability+}
+	{}
+
+%%% --- Cursor directions ---
+
+cursorDirection :=
+	"next"
+	"nextunique"
+	"prev"
+	"prevunique"
+
+%%% --- Key ranges ---
+
+keyRangeValue :=
+	IDBKeyRange.only(+idbKey+)
+	IDBKeyRange.lowerBound(+idbKey+)
+	IDBKeyRange.lowerBound(+idbKey+, +common:bool+)
+	IDBKeyRange.upperBound(+idbKey+)
+	IDBKeyRange.upperBound(+idbKey+, +common:bool+)
+	IDBKeyRange.bound(+idbKey+, +idbKey+)
+	IDBKeyRange.bound(+idbKey+, +idbKey+, +common:bool+, +common:bool+)
+
+queryArg :=
+	+idbKey+
+	+keyRangeValue+
+	undefined
+	null
+
+%%% --- getAllRecords options (new in 3.0) ---
+
+getAllRecordsOptions :=
+	{query: +queryArg+, count: %range%(1-100), direction: +cursorDirection+}
+	{query: +queryArg+, count: %range%(1-50)}
+	{query: +queryArg+, direction: +cursorDirection+}
+	{direction: +cursorDirection+, count: %range%(1-20)}
+	{query: null}
+	{}
+
+%%% --- Version numbers ---
+
+dbVersion :=
+	1
+	2
+	3
+	%range%(1-100)
+	%range%(1-999999)
+
+%%% --- Store name sets for transactions ---
+
+storeNameSet :=
+	+storeName+
+	[+storeName+]
+	[+storeName+, +storeName+]
+	[+storeName+, +storeName+, +storeName+]
+	["store1", "store2"]
+
+%%% --- Count argument ---
+
+countArg :=
+	%range%(1-100)
+	%range%(1-1000)
+	0
+	1
+	undefined
+
+%%% --- Advance count ---
+
+advanceCount :=
+	1
+	2
+	%range%(1-50)
+	%range%(1-100)
+
+%%% =========================================================================
+%%% IDBFactory operations (top-level calls)
+%%% =========================================================================
+
+factoryOp :=
+	indexedDB.cmp(+idbKey+, +idbKey+)
+	indexedDB.databases().then(function(dbs) { console.log(dbs.length); })
+	indexedDB.databases()
+
+%%% =========================================================================
+%%% IDBDatabase property reads
+%%% =========================================================================
+
+dbPropertyRead :=
+	!db!.name
+	!db!.version
+	!db!.objectStoreNames
+	!db!.objectStoreNames.length
+	!db!.objectStoreNames.contains(+storeName+)
+	!db!.objectStoreNames.item(%range%(0-5))
+
+%%% =========================================================================
+%%% IDBDatabase event handlers
+%%% =========================================================================
+
+dbEventHandler :=
+	!db!.onabort = function(e) { +dbOp+ }
+	!db!.onerror = function(e) { +dbOp+ }
+	!db!.onclose = function(e) { }
+	!db!.onversionchange = function(e) { !db!.close(); }
+	!db!.onversionchange = function(e) { }
+	!db!.addEventListener("abort", function(e) { })
+	!db!.addEventListener("error", function(e) { })
+	!db!.addEventListener("close", function(e) { })
+	!db!.addEventListener("versionchange", function(e) { !db!.close(); })
+
+%%% =========================================================================
+%%% IDBDatabase operations
+%%% =========================================================================
+
+dbOp :=
+	!db!.close();
+	+dbPropertyRead+;
+	+dbEventHandler+;
+
+%%% =========================================================================
+%%% IDBTransaction property reads
+%%% =========================================================================
+
+txPropertyRead :=
+	!tx!.objectStoreNames
+	!tx!.mode
+	!tx!.durability
+	!tx!.db
+	!tx!.db.name
+	!tx!.error
+
+%%% =========================================================================
+%%% IDBTransaction event handlers
+%%% =========================================================================
+
+txEventHandler :=
+	!tx!.oncomplete = function(e) { +txCompleteAction+ }
+	!tx!.onerror = function(e) { }
+	!tx!.onabort = function(e) { }
+	!tx!.addEventListener("complete", function(e) { +txCompleteAction+ })
+	!tx!.addEventListener("error", function(e) { })
+	!tx!.addEventListener("abort", function(e) { })
+
+txCompleteAction :=
+	console.log("tx complete");
+	+factoryOp+;
+
+%%% =========================================================================
+%%% IDBTransaction operations
+%%% =========================================================================
+
+txCommitOrAbort :=
+	!tx!.commit();
+	!tx!.abort();
+
+%%% =========================================================================
+%%% IDBObjectStore property reads
+%%% =========================================================================
+
+storePropertyRead :=
+	!store!.name
+	!store!.keyPath
+	!store!.indexNames
+	!store!.indexNames.length
+	!store!.transaction
+	!store!.autoIncrement
+	!store!.name = +storeName+
+
+%%% =========================================================================
+%%% IDBObjectStore write operations
+%%% =========================================================================
+
+storePut :=
+	!store!.put(+recordValue+)
+	!store!.put(+recordValue+, +idbKey+)
+	!store!.put(+objectValue+)
+	!store!.put(+objectValue+, +idbKey+)
+
+storeAdd :=
+	!store!.add(+recordValue+)
+	!store!.add(+recordValue+, +idbKey+)
+	!store!.add(+objectValue+)
+	!store!.add(+objectValue+, +idbKey+)
+
+storeDelete :=
+	!store!.delete(+idbKey+)
+	!store!.delete(+keyRangeValue+)
+
+storeClear :=
+	!store!.clear()
+
+%%% =========================================================================
+%%% IDBObjectStore read operations
+%%% =========================================================================
+
+storeGet :=
+	!store!.get(+idbKey+)
+	!store!.get(+keyRangeValue+)
+
+storeGetKey :=
+	!store!.getKey(+idbKey+)
+	!store!.getKey(+keyRangeValue+)
+
+storeGetAll :=
+	!store!.getAll()
+	!store!.getAll(+queryArg+)
+	!store!.getAll(+queryArg+, +countArg+)
+	!store!.getAll(null, +countArg+)
+
+storeGetAllKeys :=
+	!store!.getAllKeys()
+	!store!.getAllKeys(+queryArg+)
+	!store!.getAllKeys(+queryArg+, +countArg+)
+	!store!.getAllKeys(null, +countArg+)
+
+storeGetAllRecords :=
+	!store!.getAllRecords()
+	!store!.getAllRecords(+getAllRecordsOptions+)
+
+storeCount :=
+	!store!.count()
+	!store!.count(+idbKey+)
+	!store!.count(+keyRangeValue+)
+
+%%% =========================================================================
+%%% IDBObjectStore cursor operations
+%%% =========================================================================
+
+storeOpenCursor :=
+	!store!.openCursor()
+	!store!.openCursor(+queryArg+)
+	!store!.openCursor(+queryArg+, +cursorDirection+)
+	!store!.openCursor(null, +cursorDirection+)
+
+storeOpenKeyCursor :=
+	!store!.openKeyCursor()
+	!store!.openKeyCursor(+queryArg+)
+	!store!.openKeyCursor(+queryArg+, +cursorDirection+)
+	!store!.openKeyCursor(null, +cursorDirection+)
+
+%%% =========================================================================
+%%% IDBObjectStore index management (upgrade only)
+%%% =========================================================================
+
+storeCreateIndex :=
+	!store!.createIndex(+indexName+, +keyPath+)
+	!store!.createIndex(+indexName+, +keyPath+, +indexOptions+)
+	!store!.createIndex(+indexName+, +keyPathArray+, +indexOptions+)
+
+storeDeleteIndex :=
+	!store!.deleteIndex(+indexName+)
+
+%%% =========================================================================
+%%% IDBIndex property reads
+%%% =========================================================================
+
+indexPropertyRead :=
+	!idx!.name
+	!idx!.objectStore
+	!idx!.keyPath
+	!idx!.multiEntry
+	!idx!.unique
+	!idx!.name = +indexName+
+
+%%% =========================================================================
+%%% IDBIndex read operations
+%%% =========================================================================
+
+indexGet :=
+	!idx!.get(+idbKey+)
+	!idx!.get(+keyRangeValue+)
+
+indexGetKey :=
+	!idx!.getKey(+idbKey+)
+	!idx!.getKey(+keyRangeValue+)
+
+indexGetAll :=
+	!idx!.getAll()
+	!idx!.getAll(+queryArg+)
+	!idx!.getAll(+queryArg+, +countArg+)
+
+indexGetAllKeys :=
+	!idx!.getAllKeys()
+	!idx!.getAllKeys(+queryArg+)
+	!idx!.getAllKeys(+queryArg+, +countArg+)
+
+indexGetAllRecords :=
+	!idx!.getAllRecords()
+	!idx!.getAllRecords(+getAllRecordsOptions+)
+
+indexCount :=
+	!idx!.count()
+	!idx!.count(+idbKey+)
+	!idx!.count(+keyRangeValue+)
+
+%%% =========================================================================
+%%% IDBIndex cursor operations
+%%% =========================================================================
+
+indexOpenCursor :=
+	!idx!.openCursor()
+	!idx!.openCursor(+queryArg+)
+	!idx!.openCursor(+queryArg+, +cursorDirection+)
+
+indexOpenKeyCursor :=
+	!idx!.openKeyCursor()
+	!idx!.openKeyCursor(+queryArg+)
+	!idx!.openKeyCursor(+queryArg+, +cursorDirection+)
+
+%%% =========================================================================
+%%% IDBCursor / IDBCursorWithValue operations
+%%% =========================================================================
+
+cursorPropertyRead :=
+	!cursor!.source
+	!cursor!.direction
+	!cursor!.key
+	!cursor!.primaryKey
+	!cursor!.request
+	!cursor!.value
+
+cursorAdvance :=
+	!cursor!.advance(+advanceCount+)
+
+cursorContinue :=
+	!cursor!.continue()
+	!cursor!.continue(+idbKey+)
+
+cursorContinuePrimaryKey :=
+	!cursor!.continuePrimaryKey(+idbKey+, +idbKey+)
+
+cursorUpdate :=
+	!cursor!.update(+recordValue+)
+	!cursor!.update(+objectValue+)
+
+cursorDelete :=
+	!cursor!.delete()
+
+cursorOp :=
+	+cursorPropertyRead+
+	+cursorAdvance+
+	+cursorContinue+
+	+cursorContinuePrimaryKey+
+	+cursorUpdate+
+	+cursorDelete+
+
+%%% =========================================================================
+%%% IDBKeyRange operations (standalone)
+%%% =========================================================================
+
+keyRangeOp :=
+	+keyRangeValue+.includes(+idbKey+)
+	+keyRangeValue+.lower
+	+keyRangeValue+.upper
+	+keyRangeValue+.lowerOpen
+	+keyRangeValue+.upperOpen
+
+%%% =========================================================================
+%%% Combined store operations (for use inside transaction callbacks)
+%%% =========================================================================
+
+storeReadOp :=
+	+storeGet+
+	+storeGetKey+
+	+storeGetAll+
+	+storeGetAllKeys+
+	+storeGetAllRecords+
+	+storeCount+
+	+storePropertyRead+
+
+storeWriteOp :=
+	+storePut+
+	+storeAdd+
+	+storeDelete+
+	+storeClear+
+
+storeOp :=
+	+storeReadOp+
+	+storeWriteOp+
+	+storeOpenCursor+
+	+storeOpenKeyCursor+
+
+%%% =========================================================================
+%%% Combined index operations
+%%% =========================================================================
+
+indexReadOp :=
+	+indexGet+
+	+indexGetKey+
+	+indexGetAll+
+	+indexGetAllKeys+
+	+indexGetAllRecords+
+	+indexCount+
+	+indexPropertyRead+
+
+indexOp :=
+	+indexReadOp+
+	+indexOpenCursor+
+	+indexOpenKeyCursor+
+
+%%% =========================================================================
+%%% Request result handling (onsuccess / onerror patterns)
+%%% =========================================================================
+
+requestSuccessHandler :=
+	.onsuccess = function(e) { var result = e.target.result; }
+	.onsuccess = function(e) { console.log(e.target.result); }
+	.onsuccess = function(e) { }
+
+requestErrorHandler :=
+	.onerror = function(e) { }
+	.onerror = function(e) { e.preventDefault(); }
+	.onerror = function(e) { console.log(e.target.error); }
+
+%%% =========================================================================
+%%% Cursor iteration patterns
+%%% =========================================================================
+
+cursorIterateBody :=
+	if (cursor) { +cursorOp+; }
+	if (cursor) { console.log(cursor.key, cursor.value); cursor.continue(); }
+	if (cursor) { cursor.continue(); }
+	if (cursor) { +cursorUpdate+; cursor.continue(); }
+	if (cursor) { +cursorDelete+; cursor.continue(); }
+	if (cursor) { +cursorAdvance+; } else { console.log("done"); }
+	if (cursor) { +cursorPropertyRead+; +cursorContinue+; }
+
+%%% =========================================================================
+%%% Inline request + event wiring
+%%% =========================================================================
+
+storeReqWithHandler :=
+	var req = +storeOp+; req+requestSuccessHandler+; req+requestErrorHandler+;
+	+storeWriteOp++requestSuccessHandler+;
+	+storeReadOp++requestSuccessHandler+;
+
+indexReqWithHandler :=
+	var req = +indexOp+; req+requestSuccessHandler+; req+requestErrorHandler+;
+	+indexReadOp++requestSuccessHandler+;
+
+cursorReqWithHandler :=
+	var curReq = +storeOpenCursor+; curReq.onsuccess = function(e) { var cursor = e.target.result; +cursorIterateBody+ };
+	var curReq = +storeOpenKeyCursor+; curReq.onsuccess = function(e) { var cursor = e.target.result; +cursorIterateBody+ };
+	var curReq = +indexOpenCursor+; curReq.onsuccess = function(e) { var cursor = e.target.result; +cursorIterateBody+ };
+	var curReq = +indexOpenKeyCursor+; curReq.onsuccess = function(e) { var cursor = e.target.result; +cursorIterateBody+ };
+
+%%% =========================================================================
+%%% Transaction body actions
+%%% =========================================================================
+
+txBodyAction :=
+	+storeReqWithHandler+
+	+indexReqWithHandler+
+	+cursorReqWithHandler+
+	+storeOp+;
+	+indexOp+;
+	+txPropertyRead+;
+
+%%% =========================================================================
+%%% Upgrade actions (inside onupgradeneeded)
+%%% =========================================================================
+
+upgradeCreateStore :=
+	var us = db.createObjectStore(+storeName+, +storeOptions+);
+	var us = db.createObjectStore(+storeName+, +storeOptions+); us.createIndex(+indexName+, +keyPath+, +indexOptions+);
+	var us = db.createObjectStore(+storeName+, +storeOptions+); us.createIndex(+indexName+, +keyPath+, +indexOptions+); us.createIndex(+indexName+, +keyPathArray+, +indexOptions+);
+
+upgradeDeleteStore :=
+	db.deleteObjectStore(+storeName+);
+
+upgradeModifyIndex :=
+	var us = e.target.transaction.objectStore(+storeName+); us.createIndex(+indexName+, +keyPath+, +indexOptions+);
+	var us = e.target.transaction.objectStore(+storeName+); us.deleteIndex(+indexName+);
+	var us = e.target.transaction.objectStore(+storeName+); us.createIndex(+indexName+, +keyPathArray+, +indexOptions+);
+
+upgradePopulate :=
+	var us = e.target.transaction.objectStore(+storeName+); us.put(+recordValue+); us.put(+recordValue+); us.put(+recordValue+);
+	var us = e.target.transaction.objectStore(+storeName+); us.add(+recordValue+);
+	var us = e.target.transaction.objectStore(+storeName+); for (var i = 0; i < %range%(2-20); i++) { us.add({id: i, name: "item" + i, value: i * 0.1}); }
+
+upgradeAction :=
+	+upgradeCreateStore+
+	+upgradeDeleteStore+
+	+upgradeModifyIndex+
+	+upgradePopulate+
+
+%%% =========================================================================
+%%% Full open-with-upgrade flow
+%%% =========================================================================
+
+openUpgradeFlow :=
+	var openReq = indexedDB.open(+dbName+, +dbVersion+); openReq.onupgradeneeded = function(e) { var db = e.target.result; +upgradeAction+ +upgradeAction+ }; openReq.onsuccess = function(e) { var db = e.target.result; +postOpenAction+ }; openReq.onerror = function(e) { };
+	var openReq = indexedDB.open(+dbName+, +dbVersion+); openReq.onupgradeneeded = function(e) { var db = e.target.result; +upgradeAction+ }; openReq.onsuccess = function(e) { var db = e.target.result; +postOpenAction+ }; openReq.onerror = function(e) { };
+	var openReq = indexedDB.open(+dbName+); openReq.onsuccess = function(e) { var db = e.target.result; +postOpenAction+ }; openReq.onerror = function(e) { };
+
+%%% =========================================================================
+%%% Post-open actions (inside onsuccess of open)
+%%% =========================================================================
+
+postOpenAction :=
+	var tx = db.transaction(+storeNameSet+, +txMode+, +txOptions+); var store = tx.objectStore(+storeName+); +storeReqWithHandler+
+	var tx = db.transaction(+storeNameSet+, +txMode+); var store = tx.objectStore(+storeName+); +storeReqWithHandler+ +txEventHandler+;
+	var tx = db.transaction(+storeNameSet+, +txMode+); var store = tx.objectStore(+storeName+); var idx = store.index(+indexName+); +indexReqWithHandler+
+	var tx = db.transaction(+storeNameSet+, +txMode+); var store = tx.objectStore(+storeName+); +cursorReqWithHandler+
+	var tx = db.transaction(+storeNameSet+, "readwrite"); var store = tx.objectStore(+storeName+); store.put(+recordValue+); store.put(+recordValue+); store.put(+recordValue+); tx.commit();
+	var tx = db.transaction(+storeNameSet+, "readwrite"); var store = tx.objectStore(+storeName+); +storeWriteOp+; +storeWriteOp+; +storeReadOp++requestSuccessHandler+;
+	db.close();
+	var tx = db.transaction(+storeNameSet+, +txMode+, +txOptions+); +txEventHandler+; var store = tx.objectStore(+storeName+); +storeReqWithHandler+ +storeReqWithHandler+
+
+%%% =========================================================================
+%%% Delete database flow
+%%% =========================================================================
+
+deleteDbFlow :=
+	var delReq = indexedDB.deleteDatabase(+dbName+); delReq.onsuccess = function(e) { }; delReq.onerror = function(e) { }; delReq.onblocked = function(e) { };
+
+%%% =========================================================================
+%%% Concurrent transaction patterns
+%%% =========================================================================
+
+concurrentTxFlow :=
+	var tx1 = !db!.transaction(+storeNameSet+, "readonly"); var tx2 = !db!.transaction(+storeNameSet+, "readonly"); var s1 = tx1.objectStore(+storeName+); var s2 = tx2.objectStore(+storeName+); s1.getAll(); s2.getAll();
+	var tx1 = !db!.transaction(+storeNameSet+, "readwrite"); var tx2 = !db!.transaction(+storeNameSet+, "readonly"); var s1 = tx1.objectStore(+storeName+); var s2 = tx2.objectStore(+storeName+); s1.put(+recordValue+); s2.get(+idbKey+);
+	var tx1 = !db!.transaction([+storeName+], "readwrite", {durability: "strict"}); var tx2 = !db!.transaction([+storeName+], "readwrite", {durability: "relaxed"}); var s1 = tx1.objectStore(+storeName+); s1.put(+recordValue+); tx1.commit(); var s2 = tx2.objectStore(+storeName+); s2.put(+recordValue+);
+
+%%% =========================================================================
+%%% Composed top-level statements
+%%% =========================================================================
+
+idbStatement :=
+	+openUpgradeFlow+
+	+deleteDbFlow+
+	+factoryOp+;
+	+keyRangeOp+;
+	+openUpgradeFlow+
+	+openUpgradeFlow+
+
+%%% =========================================================================
+%%% Variable Section
+%%% =========================================================================
+
+%section% := variable
+
+%%% --- database connection ---
+
+db :=
+	var _openReq = indexedDB.open(+dbName+, +dbVersion+); _openReq.onupgradeneeded = function(e) { var _db = e.target.result; +upgradeAction+ }; _openReq.onsuccess = function(e) { @ = e.target.result; }; _openReq.onerror = function(e) { };
+
+%%% --- transaction ---
+
+tx :=
+	@ = !db!.transaction(+storeNameSet+, +txMode+, +txOptions+);
+	@ = !db!.transaction(+storeNameSet+, +txMode+);
+	@ = !db!.transaction(+storeNameSet+, "readwrite");
+	@ = !db!.transaction(+storeNameSet+, "readonly");
+
+%%% --- object store ---
+
+store :=
+	@ = !tx!.objectStore(+storeName+);
+
+%%% --- index ---
+
+idx :=
+	@ = !store!.index(+indexName+);
+
+%%% --- cursor (acquired via onsuccess) ---
+
+cursor :=
+	var _curReq = +storeOpenCursor+; _curReq.onsuccess = function(e) { @ = e.target.result; };
+	var _curReq = +storeOpenKeyCursor+; _curReq.onsuccess = function(e) { @ = e.target.result; };
+	var _curReq = +indexOpenCursor+; _curReq.onsuccess = function(e) { @ = e.target.result; };
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+idbStatement+
+	+storeReqWithHandler+
+	+indexReqWithHandler+
+	+cursorReqWithHandler+
+	+txBodyAction+
+	+dbOp+
+	+concurrentTxFlow+
+	+keyRangeOp+;
+	+factoryOp+;

@@ -1,0 +1,494 @@
+%%% WebRTC API Grammar
+%%% W3C Recommendation, 13 March 2025
+%%% https://www.w3.org/TR/webrtc/
+%%%
+%%% Covers: RTCPeerConnection, RTCSessionDescription, RTCIceCandidate,
+%%% RTCDataChannel, RTCRtpSender, RTCRtpReceiver, RTCRtpTransceiver,
+%%% RTCDtlsTransport, RTCIceTransport, RTCSctpTransport,
+%%% RTCDTMFSender, RTCStatsReport, RTCCertificate,
+%%% Offer/Answer negotiation, ICE, DTMF, Statistics
+
+%require% common
+
+%const% OUTPUT_MIN := 5
+%const% OUTPUT_MAX := 20
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+
+%%% =========================================================================
+%%% Value Section — all building blocks and operations
+%%% =========================================================================
+
+%section% := value
+
+%%% --- RTCConfiguration (§4.2.1) ---
+
+iceServer :=
+	{urls: "stun:stun.l.google.com:19302"}
+	{urls: "stun:stun1.l.google.com:19302"}
+	{urls: "stun:stun.services.mozilla.com"}
+	{urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]}
+	{urls: "turn:turn.example.com", username: "user", credential: "pass"}
+	{urls: "turns:turn.example.com:443", username: "user", credential: "pass"}
+	{urls: "stun:+common:text+"}
+	{urls: "turn:+common:text+", username: "+common:text+", credential: "+common:text+"}
+
+iceTransportPolicy :=
+	"all"
+	"relay"
+
+bundlePolicy :=
+	"balanced"
+	"max-compat"
+	"max-bundle"
+
+rtcpMuxPolicy :=
+	"require"
+
+pcConfig :=
+	{iceServers: [+iceServer+]}
+	{iceServers: [+iceServer+, +iceServer+]}
+	{iceServers: [+iceServer+], iceTransportPolicy: +iceTransportPolicy+}
+	{iceServers: [+iceServer+], bundlePolicy: +bundlePolicy+}
+	{iceServers: [+iceServer+], rtcpMuxPolicy: +rtcpMuxPolicy+}
+	{iceServers: [+iceServer+], iceCandidatePoolSize: %range%(0-10)}
+	{iceServers: []}
+	{}
+
+%%% --- RTCSdpType (§4.6.1) ---
+
+sdpType :=
+	"offer"
+	"answer"
+	"pranswer"
+	"rollback"
+
+%%% --- RTCRtpTransceiverDirection (§5.1) ---
+
+rtpDirection :=
+	"sendrecv"
+	"sendonly"
+	"recvonly"
+	"inactive"
+	"stopped"
+
+%%% --- RTCDataChannelInit (§6.2) ---
+
+dcLabel :=
+	"data"
+	"test"
+	"control"
+	"fuzz_%range%(0-999)"
+	"+common:text+"
+	""
+
+dcOptions :=
+	{ordered: +common:bool+}
+	{ordered: +common:bool+, maxPacketLifeTime: %range%(0-65535)}
+	{ordered: +common:bool+, maxRetransmits: %range%(0-65535)}
+	{protocol: "+common:text+"}
+	{negotiated: +common:bool+, id: %range%(0-65534)}
+	{ordered: +common:bool+, maxRetransmits: %range%(0-10), protocol: "", negotiated: +common:bool+, id: %range%(0-65534)}
+	{}
+
+%%% --- MediaStream constraints ---
+
+videoWidth :=
+	160
+	320
+	640
+	1280
+	1920
+	3840
+	+common:number+
+
+videoHeight :=
+	120
+	240
+	480
+	720
+	1080
+	2160
+	+common:number+
+
+frameRate :=
+	10
+	15
+	24
+	25
+	30
+	60
+	120
+	+common:number+
+
+videoConstraints :=
+	true
+	false
+	{width: +videoWidth+, height: +videoHeight+}
+	{width: {min: +videoWidth+, ideal: +videoWidth+, max: +videoWidth+}, height: {min: +videoHeight+, ideal: +videoHeight+, max: +videoHeight+}}
+	{frameRate: {ideal: +frameRate+, max: +frameRate+}}
+	{facingMode: "user"}
+	{facingMode: "environment"}
+	{width: +videoWidth+, height: +videoHeight+, frameRate: +frameRate+}
+
+audioConstraints :=
+	true
+	false
+	{echoCancellation: +common:bool+}
+	{noiseSuppression: +common:bool+}
+	{autoGainControl: +common:bool+}
+	{echoCancellation: +common:bool+, noiseSuppression: +common:bool+, autoGainControl: +common:bool+}
+	{sampleRate: %choice%(8000, 16000, 44100, 48000)}
+	{channelCount: %range%(1-8)}
+
+mediaConstraints :=
+	{audio: +audioConstraints+, video: +videoConstraints+}
+	{audio: +audioConstraints+}
+	{video: +videoConstraints+}
+	{audio: true, video: true}
+	{audio: true}
+	{video: true}
+
+%%% --- RTCRtpTransceiverInit (§5.1) ---
+
+sendEncoding :=
+	{active: +common:bool+}
+	{maxBitrate: %choice%(100000, 250000, 500000, 1000000, 2500000, 5000000)}
+	{scaleResolutionDownBy: %choice%(1, 2, 4)}
+	{rid: "q", scaleResolutionDownBy: 4, maxBitrate: 100000}
+	{rid: "h", scaleResolutionDownBy: 2, maxBitrate: 500000}
+	{rid: "f", maxBitrate: 2500000}
+	{maxFramerate: +frameRate+}
+
+transceiverInit :=
+	{direction: +rtpDirection+}
+	{direction: +rtpDirection+, streams: [+mediaStreamArg+]}
+	{sendEncodings: [+sendEncoding+]}
+	{sendEncodings: [+sendEncoding+, +sendEncoding+]}
+	{sendEncodings: [+sendEncoding+, +sendEncoding+, +sendEncoding+]}
+	{}
+
+mediaStreamArg :=
+	!stream!
+	new MediaStream()
+	new MediaStream([!track!])
+
+%%% --- DataChannel message data ---
+
+dcMessage :=
+	"+common:text+"
+	""
+	JSON.stringify({type: "test", data: +common:number+})
+	new ArrayBuffer(%range%(0-65536))
+	new Uint8Array(%range%(0-1024))
+	new Blob(["+common:text+"])
+	new ArrayBuffer(0)
+
+binaryType :=
+	"blob"
+	"arraybuffer"
+
+%%% --- ICE candidate init (§4.8.1) ---
+
+iceCandidateInit :=
+	{candidate: "", sdpMid: "0", sdpMLineIndex: 0}
+	{candidate: "", sdpMid: null}
+	null
+
+%%% --- RTCOfferOptions (§4.2.6) ---
+
+offerOptions :=
+	{iceRestart: +common:bool+}
+	{offerToReceiveAudio: +common:bool+, offerToReceiveVideo: +common:bool+}
+	{}
+
+%%% --- RTCPeerConnection property reads (§4.4.2) ---
+
+pcPropertyRead :=
+	!pc!.localDescription
+	!pc!.remoteDescription
+	!pc!.currentLocalDescription
+	!pc!.currentRemoteDescription
+	!pc!.pendingLocalDescription
+	!pc!.pendingRemoteDescription
+	!pc!.signalingState
+	!pc!.iceGatheringState
+	!pc!.iceConnectionState
+	!pc!.connectionState
+	!pc!.canTrickleIceCandidates
+	!pc!.getSenders()
+	!pc!.getReceivers()
+	!pc!.getTransceivers()
+	!pc!.getConfiguration()
+	!pc!.sctp
+
+%%% --- RTCPeerConnection event handlers (§4.4.2) ---
+
+pcEventHandler :=
+	!pc!.onicecandidate = function(e) { if (e.candidate) { !pc!.addIceCandidate(e.candidate); } }
+	!pc!.onicecandidate = function(e) { }
+	!pc!.onicecandidateerror = function(e) { }
+	!pc!.onsignalingstatechange = function(e) { }
+	!pc!.oniceconnectionstatechange = function(e) { }
+	!pc!.onicegatheringstatechange = function(e) { }
+	!pc!.onconnectionstatechange = function(e) { }
+	!pc!.onnegotiationneeded = function(e) { }
+	!pc!.ondatachannel = function(e) { var ch = e.channel; ch.onmessage = function(m) { }; }
+	!pc!.ontrack = function(e) { }
+
+%%% --- Offer/Answer negotiation (§4.4.2) ---
+
+negotiationOp :=
+	await !pc!.createOffer().then(function(offer) { return !pc!.setLocalDescription(offer); })
+	await !pc!.createAnswer().then(function(answer) { return !pc!.setLocalDescription(answer); })
+	await !pc!.setLocalDescription()
+	await !pc!.createOffer(+offerOptions+)
+	await !pc!.createOffer()
+	await !pc!.createAnswer()
+	await !pc!.setLocalDescription({type: +sdpType+, sdp: ""})
+	await !pc!.setRemoteDescription({type: +sdpType+, sdp: ""})
+	await !pc!.setLocalDescription({type: "rollback"})
+	!pc!.restartIce()
+
+%%% --- ICE candidate operations (§4.4.2) ---
+
+iceOp :=
+	await !pc!.addIceCandidate(+iceCandidateInit+)
+	await !pc!.addIceCandidate()
+	await !pc!.addIceCandidate(new RTCIceCandidate(+iceCandidateInit+))
+
+%%% --- Track management (§5.1) ---
+
+trackOp :=
+	!pc!.addTrack(!track!, !stream!)
+	!pc!.addTrack(!track!)
+	!pc!.removeTrack(!sender!)
+	!track!.enabled = +common:bool+
+	!track!.stop()
+	!track!.getSettings()
+	!track!.getCapabilities()
+	!track!.getConstraints()
+	!track!.clone()
+	!track!.kind
+	!track!.id
+	!track!.label
+	!track!.readyState
+	!track!.muted
+	!track!.enabled
+	await !track!.applyConstraints(+mediaConstraints+)
+
+%%% --- Stream operations (§9.2) ---
+
+streamOp :=
+	!stream!.getTracks()
+	!stream!.getAudioTracks()
+	!stream!.getVideoTracks()
+	!stream!.addTrack(!track!)
+	!stream!.removeTrack(!track!)
+	!stream!.getTrackById(!track!.id)
+	!stream!.clone()
+	!stream!.id
+	!stream!.active
+	new MediaStream([!track!])
+	new MediaStream(!stream!)
+
+%%% --- RTCRtpTransceiver (§5.4) ---
+
+transceiverOp :=
+	!transceiver!.direction = +rtpDirection+
+	!transceiver!.currentDirection
+	!transceiver!.mid
+	!transceiver!.sender
+	!transceiver!.receiver
+	!transceiver!.stop()
+	!transceiver!.setCodecPreferences([])
+	!transceiver!.sender.getParameters()
+	!transceiver!.sender.getStats()
+	!transceiver!.receiver.getParameters()
+	!transceiver!.receiver.getStats()
+	!transceiver!.receiver.getContributingSources()
+	!transceiver!.receiver.getSynchronizationSources()
+	!transceiver!.receiver.jitterBufferTarget = %range%(0-4000)
+	!transceiver!.receiver.jitterBufferTarget = null
+
+%%% --- RTCRtpSender (§5.2) ---
+
+senderOp :=
+	!sender!.replaceTrack(!track!)
+	!sender!.replaceTrack(null)
+	!sender!.getParameters()
+	!sender!.getStats()
+	!sender!.track
+	!sender!.transport
+	!sender!.dtmf
+	!sender!.setStreams(!stream!)
+	!sender!.setStreams()
+	await !sender!.setParameters(!sender!.getParameters())
+	var params = !sender!.getParameters(); params.encodings[0].maxBitrate = %choice%(100000, 500000, 1000000, 2500000); await !sender!.setParameters(params)
+	var params = !sender!.getParameters(); params.encodings[0].active = +common:bool+; await !sender!.setParameters(params)
+	RTCRtpSender.getCapabilities("audio")
+	RTCRtpSender.getCapabilities("video")
+
+%%% --- RTCRtpReceiver (§5.3) ---
+
+receiverOp :=
+	!transceiver!.receiver.track
+	!transceiver!.receiver.transport
+	RTCRtpReceiver.getCapabilities("audio")
+	RTCRtpReceiver.getCapabilities("video")
+
+%%% --- RTCDataChannel (§6.2) ---
+
+dcOp :=
+	!dc!.send(+dcMessage+)
+	!dc!.close()
+	!dc!.label
+	!dc!.ordered
+	!dc!.maxPacketLifeTime
+	!dc!.maxRetransmits
+	!dc!.protocol
+	!dc!.negotiated
+	!dc!.id
+	!dc!.readyState
+	!dc!.bufferedAmount
+	!dc!.bufferedAmountLowThreshold = %range%(0-65536)
+	!dc!.binaryType = +binaryType+
+	!dc!.onopen = function() { !dc!.send(+dcMessage+); }
+	!dc!.onmessage = function(e) { }
+	!dc!.onbufferedamountlow = function() { }
+	!dc!.onerror = function(e) { }
+	!dc!.onclose = function() { }
+	!dc!.onclosing = function() { }
+
+%%% --- RTCDTMFSender (§7.2) ---
+
+dtmfOp :=
+	!sender!.dtmf.insertDTMF("1")
+	!sender!.dtmf.insertDTMF("+common:text+")
+	!sender!.dtmf.insertDTMF("1234567890*#ABCD", %range%(40-6000), %range%(30-6000))
+	!sender!.dtmf.insertDTMF("", %range%(40-6000))
+	!sender!.dtmf.toneBuffer
+	!sender!.dtmf.canInsertDTMF
+	!sender!.dtmf.ontonechange = function(e) { }
+
+%%% --- Statistics (§8.2) ---
+
+statsOp :=
+	await !pc!.getStats().then(function(stats) { stats.forEach(function(s) { }); })
+	await !pc!.getStats(!track!)
+	await !pc!.getStats(null)
+	await !sender!.getStats()
+	await !transceiver!.receiver.getStats()
+
+%%% --- RTCPeerConnection config ops (§4.4.2) ---
+
+pcConfigOp :=
+	!pc!.setConfiguration(+pcConfig+)
+	!pc!.getConfiguration()
+	!pc!.close()
+
+%%% --- RTCCertificate (§4.9) ---
+
+certOp :=
+	await RTCPeerConnection.generateCertificate({name: "ECDSA", namedCurve: "P-256"})
+	await RTCPeerConnection.generateCertificate({name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256"})
+
+%%% --- RTCDtlsTransport / RTCIceTransport (§5.5, §5.6) ---
+
+transportOp :=
+	!transceiver!.sender.transport
+	!transceiver!.sender.transport.state
+	!transceiver!.sender.transport.iceTransport
+	!transceiver!.sender.transport.iceTransport.state
+	!transceiver!.sender.transport.iceTransport.gatheringState
+	!transceiver!.sender.transport.iceTransport.role
+	!transceiver!.sender.transport.iceTransport.component
+	!transceiver!.sender.transport.iceTransport.getLocalCandidates()
+	!transceiver!.sender.transport.iceTransport.getRemoteCandidates()
+	!transceiver!.sender.transport.iceTransport.getSelectedCandidatePair()
+	!transceiver!.sender.transport.iceTransport.getLocalParameters()
+	!transceiver!.sender.transport.iceTransport.getRemoteParameters()
+	!transceiver!.sender.transport.getRemoteCertificates()
+
+%%% --- RTCSctpTransport (§6.1.1) ---
+
+sctpOp :=
+	!pc!.sctp
+	!pc!.sctp.transport
+	!pc!.sctp.state
+	!pc!.sctp.maxMessageSize
+	!pc!.sctp.maxChannels
+
+%%% --- Handshake (complete offer/answer, reaches connected state) ---
+
+handshakeOp :=
+	var _o = await !pc!.createOffer(); await !pc!.setLocalDescription(_o); if (!pc!._remote) { !pc!._remote = new RTCPeerConnection(+pcConfig+); } await !pc!._remote.setRemoteDescription(_o); var _a = await !pc!._remote.createAnswer(); await !pc!._remote.setLocalDescription(_a); await !pc!.setRemoteDescription(_a);
+	await !pc!.setLocalDescription(); if (!pc!._remote) { !pc!._remote = new RTCPeerConnection(); } await !pc!._remote.setRemoteDescription(!pc!.localDescription); var _a = await !pc!._remote.createAnswer(); await !pc!._remote.setLocalDescription(_a); await !pc!.setRemoteDescription(_a);
+
+%%% --- Loopback negotiation ---
+
+loopbackOp :=
+	var offer = await !pc!.createOffer(); await !pc!.setLocalDescription(offer); var pc2 = new RTCPeerConnection(+pcConfig+); await pc2.setRemoteDescription(offer); var answer = await pc2.createAnswer(); await pc2.setLocalDescription(answer); await !pc!.setRemoteDescription(answer); pc2.close()
+
+%%% =========================================================================
+%%% Variable Section — stateful object constructors
+%%%
+%%% The pc variable creates RTCPeerConnection instances.
+%%% Streams use fake/silent tracks (no getUserMedia permission needed)
+%%% to ensure tracks are always available for addTrack/addTransceiver.
+%%% =========================================================================
+
+%section% := variable
+
+pc :=
+	var _remote = new RTCPeerConnection(+pcConfig+); @ = new RTCPeerConnection(+pcConfig+);
+	@ = new RTCPeerConnection(+pcConfig+);
+
+stream :=
+	var _actx = new AudioContext(); var _osc = _actx.createOscillator(); var _dest = _actx.createMediaStreamDestination(); _osc.connect(_dest); _osc.start(); @ = _dest.stream;
+	var _canvas = document.createElement("canvas"); _canvas.width = 640; _canvas.height = 480; @ = _canvas.captureStream(30);
+	var _actx2 = new AudioContext(); var _osc2 = _actx2.createOscillator(); var _dest2 = _actx2.createMediaStreamDestination(); _osc2.connect(_dest2); _osc2.start(); var _canvas2 = document.createElement("canvas"); _canvas2.width = 320; _canvas2.height = 240; var _vs = _canvas2.captureStream(15); @ = new MediaStream([..._dest2.stream.getTracks(), ..._vs.getTracks()]);
+
+track :=
+	@ = !stream!.getTracks()[0];
+	@ = !stream!.getAudioTracks()[0] || !stream!.getTracks()[0];
+	@ = !stream!.getVideoTracks()[0] || !stream!.getTracks()[0];
+
+dc :=
+	@ = !pc!.createDataChannel(+dcLabel+, +dcOptions+);
+	@ = !pc!.createDataChannel(+dcLabel+);
+
+sender :=
+	@ = !pc!.addTrack(!track!, !stream!);
+	@ = !pc!.getSenders()[0];
+
+transceiver :=
+	@ = !pc!.addTransceiver("audio", +transceiverInit+);
+	@ = !pc!.addTransceiver("video", +transceiverInit+);
+	@ = !pc!.addTransceiver(!track!, +transceiverInit+);
+	@ = !pc!.getTransceivers()[0];
+
+%%% =========================================================================
+%%% Output Section — entry-point rules
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	%weight%(3) +handshakeOp+;
+	+pcPropertyRead+;
+	+pcEventHandler+;
+	+negotiationOp+;
+	+iceOp+;
+	+trackOp+;
+	+streamOp+;
+	+transceiverOp+;
+	+senderOp+;
+	+receiverOp+;
+	+dcOp+;
+	+dtmfOp+;
+	+statsOp+;
+	+pcConfigOp+;
+	+certOp+;
+	+transportOp+;
+	+sctpOp+;
+	+loopbackOp+;
