@@ -1,6 +1,8 @@
 %%% SVG Grammar
 %%% Investigate: XLINK, URIs
 
+%require% common
+
 %const% MAX_REPEAT_POWER := 3
 
 %section% := value

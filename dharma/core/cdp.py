@@ -22,6 +22,7 @@ import logging
 import os
 import struct
 from typing import TYPE_CHECKING, Any
+from pathlib import Path
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -301,6 +302,7 @@ class DharmaCDPRunner:
 
         try:
             await conn.send("Page.enable")
+            await conn.send("Inspector.enable")
             result = await conn.send("Page.getFrameTree")
             frame_id = result["result"]["frameTree"]["frame"]["id"]
 
@@ -308,7 +310,32 @@ class DharmaCDPRunner:
             print(f"\n  \033[1;36m→ CDP connected — target: {title}\033[0m\n")
 
             count = 0
+            last_html = ""
             while True:
+                # Check for crash events (non-blocking)
+                try:
+                    while not conn._events.empty():
+                        evt = conn._events.get_nowait()
+                        if evt.get("method") == "Inspector.targetCrashed":
+                            logger.error("CDP: TARGET CRASHED after %d test cases!", count)
+                            # Save the last test case
+                            crash_dir = Path("dharma-crashes")
+                            crash_dir.mkdir(exist_ok=True)
+                            crash_file = crash_dir / f"cdp_crash_{count}.html"
+                            crash_file.write_text(last_html)
+                            logger.error("CDP: Crash test case saved to %s", crash_file)
+                            # Try to reconnect
+                            await conn.close()
+                            await asyncio.sleep(1.0)
+                            conn = await CDPConnection.open(ws_url)
+                            await conn.send("Page.enable")
+                            await conn.send("Inspector.enable")
+                            result = await conn.send("Page.getFrameTree")
+                            frame_id = result["result"]["frameTree"]["frame"]["id"]
+                            logger.info("CDP: Reconnected after crash")
+                except Exception:
+                    pass
+
                 # Reset page state
                 await conn.send("Page.navigate", {"url": "about:blank"})
                 await asyncio.sleep(0.05)
@@ -319,6 +346,7 @@ class DharmaCDPRunner:
                     html = content
                 else:
                     html = self._FALLBACK_TEMPLATE % content
+                last_html = html
                 await conn.send("Page.setDocumentContent", {
                     "frameId": frame_id,
                     "html": html,

@@ -611,14 +611,23 @@ canvasElementMethod :=
 %%% --- OffscreenCanvas methods ---
 
 offscreenMethod :=
-	!offscreen!.getContext("2d");
-	!offscreen!.getContext("2d", +contextOptions+);
-	!offscreen!.transferToImageBitmap();
-	!offscreen!.convertToBlob();
-	!offscreen!.convertToBlob({ type: "+encodeType+" });
-	!offscreen!.convertToBlob({ type: "+encodeType+", quality: +alpha+ });
-	!offscreen!.width = +dimension+;
-	!offscreen!.height = +dimension+;
+	!offscreenCtx!.fillRect(+coord+, +coord+, +dimension+, +dimension+)
+	!offscreenCtx!.strokeRect(+coord+, +coord+, +dimension+, +dimension+)
+	!offscreenCtx!.clearRect(+coord+, +coord+, +dimension+, +dimension+)
+	!offscreenCtx!.fillStyle = "+common:color+"
+	!offscreenCtx!.strokeStyle = "+common:color+"
+	!offscreenCtx!.drawImage(!imgSrc!, +coord+, +coord+)
+	!offscreenCtx!.drawImage(!imgSrc!, +coord+, +coord+, +dimension+, +dimension+)
+	!offscreenCtx!.getImageData(+coord+, +coord+, +dimension+, +dimension+)
+	!offscreenCtx!.putImageData(!imageData!, +coord+, +coord+)
+	!offscreenCtx!.save(); !offscreenCtx!.translate(+coord+, +coord+); !offscreenCtx!.fillRect(0, 0, +dimension+, +dimension+); !offscreenCtx!.restore()
+	!offscreenCtx!.createLinearGradient(+coord+, +coord+, +coord+, +coord+)
+	!offscreen!.transferToImageBitmap()
+	await !offscreen!.convertToBlob()
+	await !offscreen!.convertToBlob({ type: "+encodeType+" })
+	await !offscreen!.convertToBlob({ type: "+encodeType+", quality: +alpha+ })
+	!offscreen!.width = +dimension+
+	!offscreen!.height = +dimension+
 	!offscreen!.width
 	!offscreen!.height
 
@@ -766,6 +775,10 @@ textMetrics :=
 offscreen :=
 	@ = new OffscreenCanvas(+dimension+, +dimension+);
 	@ = !ctx!.canvas.transferControlToOffscreen();
+
+offscreenCtx :=
+	@ = !offscreen!.getContext("2d");
+	@ = !offscreen!.getContext("2d", +contextOptions+);
 
 bitmapCtx :=
 	bc = document.createElement("canvas"); bc.width = +dimension+; bc.height = +dimension+; (document.body || document.documentElement).appendChild(bc); @ = bc.getContext("bitmaprenderer");

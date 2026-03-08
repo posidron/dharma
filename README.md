@@ -91,7 +91,7 @@ Open the printed URL in your browser. The harness supports two execution modes:
 - **Iframe mode** — fast, runs test cases in a sandboxed iframe (default)
 - **New Tab mode** — opens each test case in a separate browser tab, giving full API access without iframe restrictions
 
-Test errors from the browser are reported back to the server and logged to `dharma-errors.log`.
+Test errors from the browser are reported back to the server and logged to `dharma-errors.log`. The test case that caused each error is saved to `dharma-crashes/N.html` for reproduction.
 
 Individual test cases are also available at `/testcase` for external tooling.
 
@@ -107,7 +107,7 @@ chrome --remote-debugging-port=9222
 dharma -grammars dharma/grammars/canvas2d.dg -cdp
 ```
 
-Gives full API access at high speed, but requires control over Chrome's launch flags. See [ARCHITECTURE.md](ARCHITECTURE.md) for trade-offs between the three modes.
+Gives full API access at high speed, but requires control over Chrome's launch flags. Automatically detects renderer crashes via `Inspector.targetCrashed`, saves the crash-causing test case to `dharma-crashes/`, and reconnects. See [ARCHITECTURE.md](ARCHITECTURE.md) for trade-offs between the three modes.
 
 ### With a template
 
@@ -155,6 +155,8 @@ Files:
 
 Debug:
   -logging LVL                     10=DEBUG, 20=INFO, 30=WARNING (default: 20)
+  -dry-run                         Validate grammars without generating output
+  -stats                           Print rule coverage statistics after generation
   -version                         Show version and exit
 ```
 
@@ -205,6 +207,7 @@ Quick reference:
 | `webaudio.dg` | Web Audio API |
 | `webrtc.dg` | WebRTC API |
 | `webnn.dg` | Web Neural Network API |
+| `webcodecs.dg` | WebCodecs (Video/Audio Decoder/Encoder, ImageDecoder) |
 | `svg.dg` | SVG DOM |
 | `indexeddb.dg` | IndexedDB |
 | `common.dg` | Shared values — numbers, strings, colors, unicode, booleans |
@@ -213,6 +216,17 @@ Quick reference:
 ## Architecture
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for details on internals, the grammar engine, and the server design.
+
+## Development
+
+```bash
+poetry install --with dev
+poetry run pytest tests/ -v       # 57 tests
+poetry run ruff format --check dharma/
+poetry run pylint dharma/
+```
+
+CI runs automatically on push/PR via [GitHub Actions](.github/workflows/ci.yml).
 
 ## Reproducibility
 

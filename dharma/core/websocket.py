@@ -115,8 +115,11 @@ class WebSocketConnection:
                 return (message_opcode or 0x1), b"".join(fragments)
 
     async def send_text(self, message: str) -> None:
-        """Send a UTF-8 text frame."""
-        await self._send_frame(0x1, message.encode("utf-8"))
+        """Send a UTF-8 text frame (or binary for large messages)."""
+        payload = message.encode("utf-8")
+        # Use binary frame for large payloads (avoids UTF-8 validation overhead)
+        opcode = 0x2 if len(payload) > 65536 else 0x1
+        await self._send_frame(opcode, payload)
 
     async def send_close(self) -> None:
         """Send a close frame (idempotent, best-effort)."""
@@ -206,15 +209,24 @@ class DharmaWebSocketServer:
         self.error_log = error_log
         self._server: asyncio.Server | None = None
         self._error_count: int = 0
+        self._last_content: str = ""  # Last test case sent (for crash logging)
 
     def _log_error(self, message: str) -> None:
-        """Append a test error to the error log file."""
+        """Append a test error to the error log file and save the test case."""
         self._error_count += 1
         try:
             with open(self.error_log, "a") as f:
                 f.write(f"{self._error_count}: {message}\n")
         except OSError:
             logger.debug("Could not write to error log %s", self.error_log)
+        # Save the test case that caused the error
+        if self._last_content:
+            crash_dir = Path("dharma-crashes")
+            crash_dir.mkdir(exist_ok=True)
+            try:
+                (crash_dir / f"{self._error_count}.html").write_text(self._last_content)
+            except OSError:
+                logger.debug("Could not save crash test case %d", self._error_count)
 
     async def start(self) -> None:
         """Start the server and serve forever."""
@@ -370,6 +382,7 @@ class DharmaWebSocketServer:
                 if status in ("open", "success"):
                     try:
                         content = self._wrap_content(self.machine.generate_content())
+                        self._last_content = content
                         await conn.send_text(content)
                     except Exception:
                         logger.exception("Generation error for %s", peer)

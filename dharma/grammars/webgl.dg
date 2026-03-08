@@ -7,6 +7,8 @@
 %%% state management, WebGL2 additions (VAOs, UBOs, transform feedback,
 %%% sync objects, sampler objects, draw buffers, instanced drawing)
 
+%require% common
+
 %const% OUTPUT_MIN := 5
 %const% OUTPUT_MAX := 25
 %const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"

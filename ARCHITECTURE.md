@@ -8,27 +8,29 @@ This document describes the internal design of Dharma.
 ┌─────────────────────────────────────────────┐
 │                  CLI (dharma.py)             │
 │  Parses args, seeds PRNG, orchestrates runs │
-└──────────┬──────────────────┬───────────────┘
-           │                  │
-     ┌─────▼─────┐    ┌──────▼──────────────┐
-     │  Generate  │    │  WebSocket Server   │
-     │  to file / │    │  (websocket.py)     │
-     │  stdout    │    │                     │
-     └─────┬─────┘    │  HTTP: / /testcase   │
-           │          │  WS:   /ws           │
-           │          └──────┬──────────────┘
-           │                 │
-     ┌─────▼─────────────────▼───────────────┐
-     │          DharmaMachine (core/dharma.py)│
-     │  Grammar parser + random generator    │
-     └──────────────────┬────────────────────┘
+│  --dry-run, --stats, --seed                 │
+└──────────┬──────────┬───────────┬───────────┘
+           │          │           │
+     ┌─────▼─────┐ ┌──▼──────┐ ┌─▼────────────┐
+     │  Generate  │ │  WS     │ │  CDP          │
+     │  to file / │ │  Server │ │  (cdp.py)     │
+     │  stdout    │ │         │ │  Direct Chrome │
+     └─────┬─────┘ └──┬──────┘ └─┬────────────┘
+           │          │           │
+     ┌─────▼──────────▼───────────▼──────────────┐
+     │          DharmaMachine (core/dharma.py)    │
+     │  Grammar parser + random generator        │
+     │  Topological sort, coverage stats,         │
+     │  first-writer-wins constants               │
+     └──────────────────┬────────────────────────┘
                         │
               ┌─────────▼─────────┐
               │   Extensions      │
               │  (extensions.py)  │
               │  %range% %repeat% │
               │  %choice% %block% │
-              │  %optional% etc.  │
+              │  %optional%       │
+              │  %unique%         │
               └───────────────────┘
 ```
 
@@ -44,17 +46,21 @@ dharma/
 │   ├── extensions.py    # Extension methods (%range%, %repeat%, %choice%, etc.)
 │   ├── errors.py        # GrammarError, ParseError, XRefError
 │   ├── websocket.py     # Async HTTP + WebSocket server (zero dependencies)
+│   ├── cdp.py           # Chrome DevTools Protocol client (zero dependencies)
 │   └── harness.html     # Browser fuzzing harness (served by the server)
 └── grammars/
     ├── common.dg        # Shared standard library (numbers, strings, colors, unicode)
-    ├── canvas2d.dg      # HTML Canvas 2D API
+    ├── canvas2d.dg      # HTML Canvas 2D + OffscreenCanvas
     ├── webgl.dg         # WebGL 1.0 / 2.0
-    ├── webgpu.dg        # WebGPU
+    ├── webgpu.dg        # WebGPU API (sample shaders for valid pipelines)
+    ├── wgsl.dg          # WGSL shader compiler (random shaders)
+    ├── webaudio.dg      # Web Audio API 1.1
+    ├── webrtc.dg        # WebRTC API
     ├── webnn.dg         # Web Neural Network API
+    ├── webcodecs.dg     # WebCodecs (Video/Audio Encoder/Decoder, ImageDecoder)
     ├── svg.dg           # SVG DOM
     ├── indexeddb.dg     # IndexedDB
-    ├── url.dg           # URL / URLSearchParams
-    ├── test.dg          # Test grammar exercising core features
+    ├── test.dg          # Feature showcase — demonstrates every grammar feature
     └── var/templates/   # HTML templates for test case wrapping
 ```
 
@@ -64,19 +70,31 @@ dharma/
 
 `DharmaMachine.process_grammars()` reads `.dg` files and builds an in-memory graph:
 
-1. **Tokenization** — Each line in an alternative is parsed into a list of tokens: `String`, `ValueXRef` (`+name+`), `VariableXRef` (`!name!`), `ElementXRef` (`@name@`), and extension calls.
-2. **Namespacing** — Each grammar file gets a namespace from its filename (e.g., `common.dg` → `common`). Cross-file references use `namespace:rule` syntax.
-3. **Cross-reference resolution** — After all files are parsed, xrefs are resolved into direct object references. Unresolved xrefs raise `XRefError`.
-4. **Leaf-path analysis** — For each `DharmaValue`, the engine identifies which alternatives are _leaf_ (contain no recursive xrefs) to guarantee termination when recursion grows deep.
+1. **Tokenization** — Each alternative is parsed into tokens: `String`, `ValueXRef` (`+name+`), `VariableXRef` (`!name!`), `ElementXRef` (`@name@`), and extension calls.
+2. **Namespacing** — Each grammar gets a namespace from its filename. Cross-file references use `namespace:rule` syntax.
+3. **Rule merging** — When multiple grammars define the same rule name, their alternatives are merged. This is how `wgsl.dg` injects random shaders into `webgpu.dg`.
+4. **`%require%` validation** — Declared dependencies are checked after all grammars load.
+5. **Cross-reference resolution** — Xrefs are resolved into direct object references.
+6. **Leaf-path analysis** — Identifies leaf alternatives to guarantee termination.
+
+### Constants: First-Writer-Wins
+
+When multiple grammars set the same `%const%`, the first grammar loaded owns it. Later grammars that try to change the value are silently ignored. **Grammar loading order matters** — list your primary grammar first.
+
+### Variable Ordering
+
+Variables are emitted in dependency order via topological sort (Kahn's algorithm). `adapter` → `device` → `buffer` → `texture`. Cycles are tolerated.
 
 ### Generation
 
-`DharmaMachine.generate_content()` produces one test case:
+`generate_content()` produces one test case:
 
-1. **Variable instantiation** — `VARIABLE_MIN..VARIABLE_MAX` variable definitions are generated, each auto-numbered (e.g., `var1`, `var2`).
-2. **Output expansion** — `OUTPUT_MIN..OUTPUT_MAX` output rules are expanded by recursively resolving xrefs.
-3. **Leaf-mode forcing** — When recursion depth exceeds `LEAF_TRIGGER` (default 256), the engine switches to leaf-only alternatives to guarantee termination.
-4. **Template wrapping** — If a template is provided, `$testcase_content` is replaced with the generated code.
+1. **Seed capture** — RNG state embedded as `/* dharma seed: ... */` comment
+2. **Variable instantiation** — In dependency order, `VARIABLE_MIN..MAX` per type
+3. **Output expansion** — `OUTPUT_MIN..MAX` rules expanded recursively
+4. **Leaf-mode forcing** — At depth > `LEAF_TRIGGER`, only leaf alternatives selected
+5. **Template wrapping** — `OUTPUT_TEMPLATE` per line, `$testcase_content` for full document
+6. **Coverage tracking** — Rule picks counted for `--stats`
 
 ### Token Types
 
@@ -86,135 +104,116 @@ dharma/
 | `ValueXRef` | `+name+` | Expands a value rule |
 | `VariableXRef` | `!name!` | References a declared variable |
 | `ElementXRef` | `@name@` | Variable declaration site |
-| `SelfRef` | bare `@` | Shorthand for self-declaring @ in variable bodies |
+| `SelfRef` | bare `@` | Shorthand in variable bodies |
 
 ### Extensions
 
-Extensions are inline function calls within grammar alternatives:
+| Extension | Syntax | Description |
+|-----------|--------|-------------|
+| `%range%` | `%range%(0-255)` | Random int, float, hex, or char |
+| `%repeat%` | `%repeat%(expr, sep, nodups)` | Repeat with separator and dedup |
+| `%choice%` | `%choice%(a, b, c)` | Uniform random pick |
+| `%optional%` | `%optional%(expr, 0.5)` | Include with probability |
+| `%unique%` | `%unique%(!a!, !b!)` | Guarantee distinct values |
+| `%weight%` | `%weight%(N) alt` | Weighted alternative |
+| `%block%` | `%block%(path)` | Embed file contents |
+| `%uri%` | `%uri%(key)` | Load from URI table |
 
-| Extension | Syntax | Example |
-|-----------|--------|---------|
-| `MetaRange` | `%range%(start-end)` | `%range%(0-255)`, `%range%(a-z)`, `%range%(0x00-0xFF)` |
-| `MetaRepeat` | `%repeat%(tokens)` | `%repeat%(+digit+)`, `%repeat%(+item+, ", ")` |
-| `MetaChoice` | `%choice%(a, b, c)` | Pick one at random |
-| `MetaBlock` | `%block%(path)` | Embed file contents |
-| `MetaURI` | `%uri%(key)` | Load from URI table |
-| `MetaOptional` | `%optional%(expr, p)` | Include with probability `p` |
+### Directives
 
-### Configuration Constants
-
-Set via `%const%` directives in grammar files:
-
-| Constant | Default | Description |
-|----------|---------|-------------|
-| `OUTPUT_MIN` | 1 | Minimum output lines per test case |
-| `OUTPUT_MAX` | 8 | Maximum output lines per test case |
-| `VARIABLE_MIN` | 1 | Minimum variable declarations |
-| `VARIABLE_MAX` | 4 | Maximum variable declarations |
-| `LEAF_TRIGGER` | 256 | Recursion depth before forcing leaf alternatives |
-| `MAX_REPEAT_POWER` | 12 | Maximum repeat count (2^N) |
-| `OUTPUT_TEMPLATE` | `%s` | Wrapper for each output line (e.g., `try { %s } catch(e) {}`) |
+| Directive | Purpose |
+|-----------|---------|
+| `%const% NAME := value` | Set constant (first-writer-wins) |
+| `%require% name` | Declare grammar dependency |
+| `%section% := value\|variable\|output` | Switch section |
 
 ## WebSocket Server (`core/websocket.py`)
 
-Zero-dependency async server built on `asyncio`. No external packages required.
+Zero-dependency async server. Handles HTTP + WebSocket on one port.
 
 ### Endpoints
 
-| Path | Method | Description |
-|------|--------|-------------|
-| `/` | GET | Browser harness UI |
-| `/testcase` | GET | Single generated test case as HTML |
-| `/health` | GET | Health check (`{"status":"ok"}`) |
-| `/ws` | WS | WebSocket stream for continuous fuzzing |
+| Path | Description |
+|------|-------------|
+| `/` | Browser harness UI |
+| `/testcase` | Single generated test case |
+| `/health` | Health check |
+| `/ws` | WebSocket stream |
 
-### WebSocket Protocol
+### Protocol
 
-The client and server exchange JSON messages:
+- Client sends `{"status": "open"}` → server sends first test case
+- Client sends `{"status": "success"}` → server sends next test case
+- Client sends `{"status": "error", "message": "..."}` → logged to `dharma-errors.log`
+- Large payloads (>64KB) sent as binary frames for efficiency
 
-**Client → Server:**
-- `{"status": "open"}` — Client ready, requesting first test case
-- `{"status": "success"}` — Previous test case executed, requesting next
+### Harness
 
-**Server → Client:**
-- Raw HTML string — The generated test case content
-
-### Browser Harness
-
-The harness (`core/harness.html`) is served at `/` and provides:
-
-- **Iframe mode** — Runs test cases in a sandboxed `<iframe>` for speed. Some APIs may be restricted in iframe context.
-- **New Tab mode** — Opens each test case in a separate browser tab via `window.open()`, giving full API access. The tab is closed after a configurable TTL before the next test is requested. Slower but avoids iframe sandbox limitations.
-- **Controls** — Pause/resume, adjustable delay between tests, tab TTL slider.
-- **Stats** — Live test count, error count, generation rate.
-- **Auto-reconnect** — Reconnects to the server on disconnect.
+- **Iframe mode** — Full sandbox permissions + feature policies for all hardware APIs
+- **New Tab mode** — Concurrent tab pool (1–10), configurable TTL
+- **Error reporting** — `window.onerror` → `postMessage` → WebSocket → server log file
+- **Crash saving** — Each error's test case is saved to `dharma-crashes/N.html` for reproduction
 
 ## CDP Mode (`core/cdp.py`)
 
-Direct injection of test cases into Chrome via the DevTools Protocol — no browser harness, no UI, no iframe restrictions.
+Direct Chrome injection. Zero dependencies.
 
-### Requirements
+1. Discovers targets via `/json/list` (full response, no truncation)
+2. WebSocket connection with proper masking (RFC 6455 client)
+3. Wraps content in `<script type="module">` when no template set
+4. Cancels pending futures on close
+5. Monitors `Inspector.targetCrashed` — saves crash test case and auto-reconnects
 
-Chrome must be launched with remote debugging enabled:
+### Mode Comparison
 
-```bash
-chrome --remote-debugging-port=9222
-# or on macOS:
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
-```
+| Mode | Speed | API Access | Setup |
+|------|-------|------------|-------|
+| Iframe | Fast | Full (permissive sandbox) | None |
+| New Tab | Medium | Full | Allow pop-ups |
+| CDP | Fast | Full | Chrome `--remote-debugging-port` |
 
-### How It Works
+## CLI
 
-1. Dharma connects to Chrome's debug HTTP endpoint (`/json/list`) to discover page targets
-2. Opens a CDP WebSocket connection to the target's `webSocketDebuggerUrl`
-3. Enables the `Page` domain and retrieves the main frame ID
-4. Loops:
-   - `Page.navigate({url: "about:blank"})` — reset page state
-   - `Page.setDocumentContent({frameId, html})` — inject the generated test case
-   - Wait for the configured TTL (default 2s) for scripts to execute
-   - Repeat
-
-### Architecture
-
-```
-┌────────────────┐         CDP (WebSocket)         ┌──────────────────┐
-│  Dharma CLI    │◄──────────────────────────────►  │  Chrome/Chromium │
-│  -cdp mode     │  Page.navigate, setDocContent    │  --remote-debug  │
-└────────────────┘                                  └──────────────────┘
-```
-
-The CDP client (`cdp.py`) is zero-dependency — it implements the WebSocket client handshake and frame protocol from scratch using `asyncio`, matching the server's zero-dependency approach.
-
-### Trade-offs
-
-| Mode | Speed | API Access | Setup | Works on Locked Devices |
-|------|-------|------------|-------|-----------------------|
-| Iframe (WebSocket) | Fast | Limited (sandbox) | None | Yes |
-| New Tab (WebSocket) | Medium | Full | Allow pop-ups | Yes |
-| CDP | Fast | Full | Launch Chrome with `--remote-debugging-port` | No |
-
-CDP gives the best combination of speed and API access, but requires control over how Chrome is launched. For targets where you can't enable remote debugging (smart TVs, embedded browsers, closed-source products), use the WebSocket harness modes instead.
-
-## Reproducibility
-
-- All randomization uses Python's `random` module, seeded at startup.
-- The seed is logged on every run and can be replayed with `-seed N`.
-- Generated test cases contain no `Math.random()` — all choices are made server-side.
+| Flag | Description |
+|------|-------------|
+| `-grammars FILE...` | Grammar files (required) |
+| `-dry-run` | Validate grammars without generating |
+| `-stats` | Print coverage statistics to stderr |
+| `-seed N` | Reproducible generation |
+| `-count N` | Number of test cases |
+| `-server` | WebSocket server mode |
+| `-server-mode iframe\|tab` | Harness execution mode |
+| `-cdp` | Chrome DevTools Protocol mode |
+| `-storage DIR` | Write test cases to directory |
+| `-template FILE` | HTML template with `$testcase_content` |
 
 ## Build
 
-The project uses a single `pyproject.toml` with setuptools. No `setup.py`, no `Makefile`, no `__version__.py` — the version is declared once in `pyproject.toml` and read at runtime via `importlib.metadata`.
+```bash
+poetry install              # Production
+poetry install --with dev   # With ruff, pylint, mypy, pytest
+```
+
+Requires **Python ≥ 3.13**.
+
+## Testing
 
 ```bash
-pip install .           # Install
-pip install -e ".[dev]" # Editable install with dev tools (pytest, ruff, pylint, mypy)
+poetry run pytest tests/ -v    # 57 tests, ~2s
 ```
+
+Tests cover: engine constants, range/variable edge cases, all extensions, rule merging, cross-grammar refs, CLI flags (dry-run, stats, seed reproducibility), content wrapping, and parametrized load+generate for all grammars.
+
+CI runs on push/PR via `.github/workflows/ci.yml`.
 
 ## Adding a New Grammar
 
 1. Create `dharma/grammars/yourapi.dg`
-2. Define `%section% := value` rules for the API's types and methods
-3. Define `%section% := variable` for any stateful objects
-4. Define `%section% := output` for the entry-point operations
-5. Reference shared values with `+common:number+`, `+common:bool+`, etc.
-6. Test: `dharma -grammars dharma/grammars/yourapi.dg dharma/grammars/common.dg`
+2. Add `%require% common`
+3. Set `%const% OUTPUT_MIN`, `OUTPUT_MAX`, `OUTPUT_TEMPLATE`
+4. Define value, variable, and output sections
+5. Validate: `dharma -grammars dharma/grammars/yourapi.dg -dry-run`
+6. Test: `dharma -grammars dharma/grammars/yourapi.dg -seed 42`
+7. Coverage: `dharma -grammars dharma/grammars/yourapi.dg -count 100 -stats`
+
+See [`dharma/grammars/test.dg`](dharma/grammars/test.dg) for every feature demonstrated.

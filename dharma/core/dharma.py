@@ -286,6 +286,9 @@ class DharmaValue(DharmaObject):
         if not self.alternatives:
             return ""
 
+        # Track coverage
+        self.machine._stats_value[self.ident] = self.machine._stats_value.get(self.ident, 0) + 1
+
         if state.leaf_mode and self.leaf_indices:
             idx = random.choices(self.leaf_indices, weights=self.leaf_weights, k=1)[0]
             tokens = self.alternatives[idx]
@@ -438,6 +441,11 @@ class DharmaMachine:
 
         # Default grammars auto-loaded before user grammars
         self._default_grammars = ["../grammars/common.dg"]
+
+        # Coverage statistics
+        self._stats_output: dict[str, int] = {}   # output rule ident → pick count
+        self._stats_value: dict[str, int] = {}     # value rule ident → generate count
+        self._stats_total: int = 0                 # total test cases generated
 
     # -- identification --
 
@@ -951,6 +959,7 @@ class DharmaMachine:
         count = random.randint(out_min, out_max)
         for _ in range(count):
             rule = random.choice(list(self.output.values()))
+            self._stats_output[rule.ident] = self._stats_output.get(rule.ident, 0) + 1
             generated = rule.generate(GenState())
             try:
                 outputs.append(DharmaConst.OUTPUT_TEMPLATE % generated)
@@ -971,6 +980,7 @@ class DharmaMachine:
 
         # Assemble with seed comment for reproducibility
         seed_comment = f"/* dharma seed: {seed_tag} */\n"
+        self._stats_total += 1
         content = "".join(chain([self.prefix, seed_comment], variables, outputs, [self.suffix]))
         if self.template:
             return Template(self.template).safe_substitute(testcase_content=content)
@@ -1017,6 +1027,40 @@ class DharmaMachine:
         out.mkdir(parents=True, exist_ok=True)
         for n in range(count):
             (out / f"{n + 1}.{filetype}").write_text(self.generate_content())
+
+    def print_stats(self) -> None:
+        """Print coverage statistics to stderr."""
+        import sys
+        w = sys.stderr.write
+        w(f"\n{'='*60}\n")
+        w(f"Dharma Coverage Statistics ({self._stats_total} test cases)\n")
+        w(f"{'='*60}\n")
+
+        # Output rule usage
+        w(f"\nOutput rules ({len(self.output)} defined):\n")
+        for ident in sorted(self.output):
+            hits = self._stats_output.get(ident, 0)
+            marker = " ◀ UNUSED" if hits == 0 else ""
+            w(f"  {ident:40s} {hits:6d} hits{marker}\n")
+
+        # Value rule usage (top 20 + any unused)
+        w(f"\nValue rules ({len(self.value)} defined, ")
+        used = sum(1 for v in self.value if self._stats_value.get(v, 0) > 0)
+        unused = len(self.value) - used
+        w(f"{used} used, {unused} unused):\n")
+        if unused > 0:
+            w("  Unused:\n")
+            for ident in sorted(self.value):
+                if self._stats_value.get(ident, 0) == 0:
+                    w(f"    {ident}\n")
+        # Top 20 most-used
+        top = sorted(self._stats_value.items(), key=lambda x: -x[1])[:20]
+        if top:
+            w("  Top 20 most-generated:\n")
+            for ident, hits in top:
+                w(f"    {ident:40s} {hits:6d}\n")
+
+        w(f"\n{'='*60}\n")
 
     # ------------------------------------------------------------------
     # Grammar loading

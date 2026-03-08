@@ -1,0 +1,535 @@
+%%% WebCodecs API Grammar
+%%% W3C Candidate Recommendation Draft, 2025
+%%% https://www.w3.org/TR/webcodecs/
+%%%
+%%% Covers: VideoDecoder, VideoEncoder, AudioDecoder, AudioEncoder,
+%%% VideoFrame, AudioData, EncodedVideoChunk, EncodedAudioChunk,
+%%% ImageDecoder, ImageTrackList
+%%%
+%%% These APIs touch native codec implementations (C/C++) — prime
+%%% targets for memory corruption, integer overflow, and use-after-free.
+
+%require% common
+
+%const% OUTPUT_MIN := 3
+%const% OUTPUT_MAX := 15
+%const% OUTPUT_TEMPLATE := "try { %s } catch(e) {}"
+
+%%% =========================================================================
+%%% Value Section
+%%% =========================================================================
+
+%section% := value
+
+%%% --- Video codecs (§9.1) ---
+
+videoCodec :=
+	"avc1.42001E"
+	"avc1.4D401E"
+	"avc1.64001E"
+	"avc1.640028"
+	"avc1.640034"
+	"vp8"
+	"vp09.00.10.08"
+	"vp09.02.10.10"
+	"av01.0.04M.08"
+	"av01.0.08M.10"
+	"hev1.1.6.L93.B0"
+	"hvc1.1.6.L93.B0"
+
+%%% --- Audio codecs (§10.1) ---
+
+audioCodec :=
+	"opus"
+	"mp4a.40.2"
+	"mp4a.40.5"
+	"flac"
+	"pcm-u8"
+	"pcm-s16"
+	"pcm-s24"
+	"pcm-s32"
+	"pcm-f32"
+	"alaw"
+	"ulaw"
+	"vorbis"
+	"mp3"
+
+%%% --- Pixel formats (§17) ---
+
+pixelFormat :=
+	"I420"
+	"I420A"
+	"I422"
+	"I444"
+	"NV12"
+	"RGBA"
+	"RGBX"
+	"BGRA"
+	"BGRX"
+
+%%% --- Sample formats (§18) ---
+
+sampleFormat :=
+	"u8"
+	"s16"
+	"s32"
+	"f32"
+	"u8-planar"
+	"s16-planar"
+	"s32-planar"
+	"f32-planar"
+
+%%% --- Dimensions ---
+
+videoWidth :=
+	16
+	32
+	64
+	128
+	160
+	176
+	320
+	352
+	640
+	720
+	1280
+	1920
+	3840
+	0
+	1
+	-1
+	+common:number+
+
+videoHeight :=
+	16
+	32
+	64
+	96
+	120
+	128
+	144
+	240
+	288
+	480
+	720
+	1080
+	2160
+	0
+	1
+	-1
+	+common:number+
+
+sampleRate :=
+	8000
+	16000
+	22050
+	44100
+	48000
+	96000
+	0
+	-1
+	+common:number+
+
+numberOfChannels :=
+	1
+	2
+	4
+	6
+	8
+	0
+	-1
+	+common:number+
+
+%%% --- Bitrate / framerate ---
+
+bitrate :=
+	50000
+	100000
+	250000
+	500000
+	1000000
+	2500000
+	5000000
+	10000000
+	50000000
+	0
+	-1
+	+common:number+
+
+framerate :=
+	10
+	15
+	24
+	25
+	29.97
+	30
+	50
+	60
+	120
+	0
+	-1
+	+common:number+
+
+%%% --- Hardware acceleration ---
+
+hwAcceleration :=
+	"no-preference"
+	"prefer-hardware"
+	"prefer-software"
+
+%%% --- Latency mode ---
+
+latencyMode :=
+	"quality"
+	"realtime"
+
+%%% --- Alpha handling ---
+
+alphaOption :=
+	"keep"
+	"discard"
+
+%%% --- Bitrate mode ---
+
+bitrateMode :=
+	"constant"
+	"variable"
+	"quantizer"
+
+%%% --- AVC (H.264) specific ---
+
+avcFormat :=
+	"annexb"
+	"avc"
+
+%%% --- HEVC specific ---
+
+hevcFormat :=
+	"annexb"
+	"hevc"
+
+%%% --- Scalability mode ---
+
+scalabilityMode :=
+	"L1T1"
+	"L1T2"
+	"L1T3"
+	"L2T1"
+	"L2T2"
+	"L2T3"
+	"L3T1"
+	"L3T2"
+	"L3T3"
+	"S2T1"
+	"S2T2"
+	"S2T3"
+
+%%% --- Chunk type ---
+
+chunkType :=
+	"key"
+	"delta"
+
+%%% --- Image type ---
+
+imageType :=
+	"image/png"
+	"image/jpeg"
+	"image/gif"
+	"image/webp"
+	"image/avif"
+	"image/bmp"
+	"image/svg+xml"
+	"image/x-icon"
+
+%%% --- Timestamp ---
+
+timestamp :=
+	0
+	1
+	1000
+	33333
+	66667
+	100000
+	1000000
+	%range%(0-10000000)
+	-1
+	+common:number+
+
+duration :=
+	0
+	1000
+	33333
+	40000
+	100000
+	1000000
+	%range%(0-10000000)
+	+common:number+
+
+%%% --- Typed array data ---
+
+smallBuffer :=
+	new Uint8Array(%range%(1-64))
+	new Uint8Array([%repeat%(%range%(0-255), ", ")])
+	new Uint8Array(0)
+	new ArrayBuffer(%range%(0-1024))
+
+%%% --- VideoDecoderConfig (§9.2) ---
+
+videoDecoderConfig :=
+	{codec: +videoCodec+}
+	{codec: +videoCodec+, codedWidth: +videoWidth+, codedHeight: +videoHeight+}
+	{codec: +videoCodec+, codedWidth: +videoWidth+, codedHeight: +videoHeight+, hardwareAcceleration: +hwAcceleration+}
+	{codec: +videoCodec+, codedWidth: +videoWidth+, codedHeight: +videoHeight+, description: +smallBuffer+}
+	{codec: +videoCodec+, codedWidth: +videoWidth+, codedHeight: +videoHeight+, optimizeForLatency: +common:bool+}
+	{codec: +videoCodec+, displayAspectWidth: +videoWidth+, displayAspectHeight: +videoHeight+}
+
+%%% --- VideoEncoderConfig (§9.6) ---
+
+videoEncoderConfig :=
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, bitrate: +bitrate+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, framerate: +framerate+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, bitrate: +bitrate+, framerate: +framerate+, latencyMode: +latencyMode+, hardwareAcceleration: +hwAcceleration+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, bitrateMode: +bitrateMode+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, alpha: +alphaOption+}
+	{codec: +videoCodec+, width: +videoWidth+, height: +videoHeight+, scalabilityMode: +scalabilityMode+}
+	{codec: "avc1.42001E", width: +videoWidth+, height: +videoHeight+, avc: {format: +avcFormat+}}
+	{codec: "hev1.1.6.L93.B0", width: +videoWidth+, height: +videoHeight+, hevc: {format: +hevcFormat+}}
+
+%%% --- AudioDecoderConfig (§10.2) ---
+
+audioDecoderConfig :=
+	{codec: +audioCodec+, sampleRate: +sampleRate+, numberOfChannels: +numberOfChannels+}
+	{codec: +audioCodec+, sampleRate: +sampleRate+, numberOfChannels: +numberOfChannels+, description: +smallBuffer+}
+
+%%% --- AudioEncoderConfig (§10.6) ---
+
+audioEncoderConfig :=
+	{codec: +audioCodec+, sampleRate: +sampleRate+, numberOfChannels: +numberOfChannels+}
+	{codec: +audioCodec+, sampleRate: +sampleRate+, numberOfChannels: +numberOfChannels+, bitrate: +bitrate+}
+	{codec: "opus", sampleRate: 48000, numberOfChannels: 2, bitrate: 128000}
+	{codec: "mp4a.40.2", sampleRate: 44100, numberOfChannels: 2, bitrate: 256000}
+	{codec: +audioCodec+, sampleRate: +sampleRate+, numberOfChannels: +numberOfChannels+, bitrateMode: +bitrateMode+}
+
+%%% --- VideoFrame init (§13) ---
+
+videoFrameBufferInit :=
+	{format: +pixelFormat+, codedWidth: +videoWidth+, codedHeight: +videoHeight+, timestamp: +timestamp+}
+	{format: +pixelFormat+, codedWidth: +videoWidth+, codedHeight: +videoHeight+, timestamp: +timestamp+, duration: +duration+}
+	{format: "I420", codedWidth: 320, codedHeight: 240, timestamp: +timestamp+}
+	{format: "RGBA", codedWidth: +videoWidth+, codedHeight: +videoHeight+, timestamp: +timestamp+}
+
+videoFrameInit :=
+	{timestamp: +timestamp+}
+	{timestamp: +timestamp+, duration: +duration+}
+	{timestamp: +timestamp+, alpha: +alphaOption+}
+	{timestamp: +timestamp+, displayWidth: +videoWidth+, displayHeight: +videoHeight+}
+	{}
+
+%%% --- AudioData init (§14) ---
+
+audioDataInit :=
+	{format: +sampleFormat+, sampleRate: +sampleRate+, numberOfFrames: %range%(1-4096), numberOfChannels: +numberOfChannels+, timestamp: +timestamp+, data: new Float32Array(%range%(1-4096))}
+	{format: "f32", sampleRate: 48000, numberOfFrames: 1024, numberOfChannels: 2, timestamp: +timestamp+, data: new Float32Array(2048)}
+	{format: "s16", sampleRate: 44100, numberOfFrames: 512, numberOfChannels: 1, timestamp: +timestamp+, data: new Int16Array(512)}
+	{format: +sampleFormat+, sampleRate: +sampleRate+, numberOfFrames: %range%(1-1024), numberOfChannels: +numberOfChannels+, timestamp: +timestamp+, data: +smallBuffer+}
+
+%%% --- EncodedVideoChunk init (§11) ---
+
+encodedVideoChunkInit :=
+	{type: +chunkType+, timestamp: +timestamp+, data: +smallBuffer+}
+	{type: +chunkType+, timestamp: +timestamp+, duration: +duration+, data: +smallBuffer+}
+	{type: "key", timestamp: 0, data: new Uint8Array([0, 0, 0, 1, 0x67, 0x42, 0x00, 0x1e, 0xab, 0x40])}
+
+%%% --- EncodedAudioChunk init (§12) ---
+
+encodedAudioChunkInit :=
+	{type: +chunkType+, timestamp: +timestamp+, data: +smallBuffer+}
+	{type: +chunkType+, timestamp: +timestamp+, duration: +duration+, data: +smallBuffer+}
+
+%%% --- ImageDecoder init (§15) ---
+
+imageDecoderInit :=
+	{data: new Response(+smallBuffer+).body, type: +imageType+}
+	{data: new Blob([+smallBuffer+], {type: +imageType+}), type: +imageType+}
+	{data: +smallBuffer+, type: +imageType+}
+	{data: +smallBuffer+, type: +imageType+, preferAnimation: +common:bool+}
+
+%%% --- isConfigSupported (static) ---
+
+isConfigSupportedOp :=
+	await VideoDecoder.isConfigSupported(+videoDecoderConfig+)
+	await VideoEncoder.isConfigSupported(+videoEncoderConfig+)
+	await AudioDecoder.isConfigSupported(+audioDecoderConfig+)
+	await AudioEncoder.isConfigSupported(+audioEncoderConfig+)
+
+%%% --- VideoDecoder operations (§9.3) ---
+
+videoDecoderOp :=
+	!videoDecoder!.configure(+videoDecoderConfig+)
+	!videoDecoder!.decode(new EncodedVideoChunk(+encodedVideoChunkInit+))
+	!videoDecoder!.decode(!encodedVideoChunk!)
+	await !videoDecoder!.flush()
+	!videoDecoder!.reset()
+	!videoDecoder!.close()
+	!videoDecoder!.state
+	!videoDecoder!.decodeQueueSize
+
+%%% --- VideoEncoder operations (§9.7) ---
+
+videoEncoderOp :=
+	!videoEncoder!.configure(+videoEncoderConfig+)
+	!videoEncoder!.encode(!videoFrame!)
+	!videoEncoder!.encode(!videoFrame!, {keyFrame: +common:bool+})
+	await !videoEncoder!.flush()
+	!videoEncoder!.reset()
+	!videoEncoder!.close()
+	!videoEncoder!.state
+	!videoEncoder!.encodeQueueSize
+
+%%% --- AudioDecoder operations (§10.3) ---
+
+audioDecoderOp :=
+	!audioDecoder!.configure(+audioDecoderConfig+)
+	!audioDecoder!.decode(new EncodedAudioChunk(+encodedAudioChunkInit+))
+	!audioDecoder!.decode(!encodedAudioChunk!)
+	await !audioDecoder!.flush()
+	!audioDecoder!.reset()
+	!audioDecoder!.close()
+	!audioDecoder!.state
+	!audioDecoder!.decodeQueueSize
+
+%%% --- AudioEncoder operations (§10.7) ---
+
+audioEncoderOp :=
+	!audioEncoder!.configure(+audioEncoderConfig+)
+	!audioEncoder!.encode(!audioData!)
+	await !audioEncoder!.flush()
+	!audioEncoder!.reset()
+	!audioEncoder!.close()
+	!audioEncoder!.state
+	!audioEncoder!.encodeQueueSize
+
+%%% --- VideoFrame operations (§13.3) ---
+
+videoFrameOp :=
+	!videoFrame!.format
+	!videoFrame!.codedWidth
+	!videoFrame!.codedHeight
+	!videoFrame!.displayWidth
+	!videoFrame!.displayHeight
+	!videoFrame!.timestamp
+	!videoFrame!.duration
+	!videoFrame!.colorSpace
+	!videoFrame!.allocationSize()
+	!videoFrame!.allocationSize({rect: {x: 0, y: 0, width: +videoWidth+, height: +videoHeight+}})
+	await !videoFrame!.copyTo(new ArrayBuffer(!videoFrame!.allocationSize()))
+	!videoFrame!.clone()
+	!videoFrame!.close()
+
+%%% --- AudioData operations (§14.3) ---
+
+audioDataOp :=
+	!audioData!.format
+	!audioData!.sampleRate
+	!audioData!.numberOfFrames
+	!audioData!.numberOfChannels
+	!audioData!.duration
+	!audioData!.timestamp
+	!audioData!.allocationSize({planeIndex: 0})
+	await !audioData!.copyTo(new ArrayBuffer(!audioData!.allocationSize({planeIndex: 0})), {planeIndex: 0})
+	!audioData!.clone()
+	!audioData!.close()
+
+%%% --- ImageDecoder operations (§15.3) ---
+
+imageDecoderOp :=
+	await !imageDecoder!.decode()
+	await !imageDecoder!.decode({frameIndex: 0})
+	await !imageDecoder!.decode({frameIndex: %range%(0-10)})
+	await !imageDecoder!.decode({completeFramesOnly: +common:bool+})
+	!imageDecoder!.type
+	!imageDecoder!.complete
+	!imageDecoder!.completed
+	!imageDecoder!.tracks.length
+	!imageDecoder!.tracks.ready
+	!imageDecoder!.tracks.selectedIndex
+	!imageDecoder!.tracks.selectedTrack
+	!imageDecoder!.reset()
+	!imageDecoder!.close()
+
+%%% --- EncodedVideoChunk operations (§11.3) ---
+
+encodedVideoChunkOp :=
+	!encodedVideoChunk!.type
+	!encodedVideoChunk!.timestamp
+	!encodedVideoChunk!.duration
+	!encodedVideoChunk!.byteLength
+	!encodedVideoChunk!.copyTo(new ArrayBuffer(!encodedVideoChunk!.byteLength))
+
+%%% --- EncodedAudioChunk operations (§12.3) ---
+
+encodedAudioChunkOp :=
+	!encodedAudioChunk!.type
+	!encodedAudioChunk!.timestamp
+	!encodedAudioChunk!.duration
+	!encodedAudioChunk!.byteLength
+	!encodedAudioChunk!.copyTo(new ArrayBuffer(!encodedAudioChunk!.byteLength))
+
+%%% --- Top-level statements ---
+
+webcodecStmt :=
+	+videoDecoderOp+
+	+videoEncoderOp+
+	+audioDecoderOp+
+	+audioEncoderOp+
+	+videoFrameOp+
+	+audioDataOp+
+	+imageDecoderOp+
+	+encodedVideoChunkOp+
+	+encodedAudioChunkOp+
+	+isConfigSupportedOp+
+
+%%% =========================================================================
+%%% Variable Section
+%%% =========================================================================
+
+%section% := variable
+
+videoDecoder :=
+	@ = new VideoDecoder({output: (frame) => { frame.close(); }, error: (e) => {}});
+
+videoEncoder :=
+	@ = new VideoEncoder({output: (chunk, meta) => {}, error: (e) => {}});
+
+audioDecoder :=
+	@ = new AudioDecoder({output: (data) => { data.close(); }, error: (e) => {}});
+
+audioEncoder :=
+	@ = new AudioEncoder({output: (chunk, meta) => {}, error: (e) => {}});
+
+videoFrame :=
+	var _canvas = document.createElement("canvas"); _canvas.width = +videoWidth+; _canvas.height = +videoHeight+; @ = new VideoFrame(_canvas, +videoFrameInit+);
+	@ = new VideoFrame(new Uint8Array(+videoWidth+ * +videoHeight+ * 4), +videoFrameBufferInit+);
+
+audioData :=
+	@ = new AudioData(+audioDataInit+);
+
+encodedVideoChunk :=
+	@ = new EncodedVideoChunk(+encodedVideoChunkInit+);
+
+encodedAudioChunk :=
+	@ = new EncodedAudioChunk(+encodedAudioChunkInit+);
+
+imageDecoder :=
+	@ = new ImageDecoder(+imageDecoderInit+);
+
+%%% =========================================================================
+%%% Output Section
+%%% =========================================================================
+
+%section% := output
+
+main :=
+	+webcodecStmt+;

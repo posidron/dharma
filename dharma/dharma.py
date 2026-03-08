@@ -177,6 +177,18 @@ class DharmaCommandLine:
             help="Logging level (10=DEBUG … 50=CRITICAL, default: 20)",
         )
         dbg.add_argument(
+            "-dry-run",
+            "--dry-run",
+            action="store_true",
+            help="Parse and validate grammars without generating output",
+        )
+        dbg.add_argument(
+            "-stats",
+            "--stats",
+            action="store_true",
+            help="Print rule coverage statistics after generation",
+        )
+        dbg.add_argument(
             "-version",
             "--version",
             action="version",
@@ -219,6 +231,17 @@ class DharmaCommandLine:
             logging.error("Grammar processing failed: %s", exc)
             return 1
 
+        # Dry-run: just validate, don't generate
+        if args.dry_run:
+            n_values = len(dharma.value)
+            n_vars = len(dharma.variable)
+            n_outputs = len(dharma.output)
+            print(
+                f"Grammar OK: {n_values} values, {n_vars} variables, "
+                f"{n_outputs} output rules"
+            )
+            return 0
+
         # Run
         if args.storage:
             try:
@@ -246,5 +269,9 @@ class DharmaCommandLine:
         else:
             for _ in range(args.count):
                 print(dharma.generate_content())
+
+        # Print coverage stats if requested
+        if args.stats:
+            dharma.print_stats()
 
         return 0

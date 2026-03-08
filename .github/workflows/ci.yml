@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Run tests
+        run: poetry run pytest tests/ -v
+
+      - name: Validate all grammars (dry-run)
+        run: |
+          for g in dharma/grammars/*.dg; do
+            echo "Validating $g..."
+            poetry run dharma -grammars "$g" -dry-run
+          done
+
+      - name: Generate sample output (smoke test)
+        run: |
+          poetry run dharma -grammars dharma/grammars/webgpu.dg -seed 42 -count 5 > /dev/null
+          poetry run dharma -grammars dharma/grammars/webrtc.dg -seed 42 -count 5 > /dev/null
+          poetry run dharma -grammars dharma/grammars/webcodecs.dg -seed 42 -count 5 > /dev/null
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Ruff format check
+        run: poetry run ruff format --check dharma/
+
+      - name: Pylint
+        run: poetry run pylint dharma/ --exit-zero
+
+      - name: Mypy
+        run: poetry run mypy dharma/ --ignore-missing-imports
